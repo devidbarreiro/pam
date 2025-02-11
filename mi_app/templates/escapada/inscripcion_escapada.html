@@ -1,0 +1,208 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Formulario de inscripción para {{ escapada.nombre }}">
+  <title>Inscripción a Escapada - {{ escapada.nombre }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Agregar fuente moderna y optimizada -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen font-['Inter']">
+  <!-- Loading overlay -->
+  <div id="loadingOverlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white p-4 rounded-lg shadow-lg">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <p class="mt-2 text-gray-700">Procesando...</p>
+    </div>
+  </div>
+
+  <div 
+    class="min-h-screen flex items-center justify-center bg-cover bg-center bg-fixed p-4 relative"
+    style="background-image: url('{% static "images/inscripcion_escapada.jpg" %}');"
+    aria-hidden="true"
+  >
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+    <div class="relative bg-white/95 shadow-2xl rounded-lg p-8 max-w-4xl w-full z-10">
+      <header class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-2">
+          ¡BIENVENIDO A {{ escapada.nombre }}!
+        </h1>
+        {% if escapada.fecha_inicio %}
+          <p class="text-gray-600">
+            {{ escapada.fecha_inicio|date:"d/m/Y" }} - {{ escapada.fecha_fin|date:"d/m/Y" }}
+          </p>
+        {% endif %}
+      </header>
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="mb-6 p-4 rounded-lg {% if message.tags == 'error' %}bg-red-100 text-red-700{% elif message.tags == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}"
+               role="alert">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      {% if not persona and not habitaciones_disponibles %}
+        <!-- Formulario de DNI mejorado -->
+        <form method="post" class="space-y-6" id="dniForm" novalidate>
+          {% csrf_token %}
+          <div>
+            <label for="dni" class="block text-lg font-medium text-gray-700 mb-2">
+              Ingresa tu DNI para continuar
+            </label>
+            <div class="relative">
+              <input
+                type="text"
+                name="dni"
+                id="dni"
+                pattern="[0-9]{8}[A-Za-z]{1}"
+                required
+                maxlength="9"
+                class="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-lg"
+                placeholder="Ejemplo: 12345678A"
+                aria-describedby="dni-help"
+              >
+            </div>
+            <p id="dni-help" class="mt-2 text-sm text-gray-500">
+              Introduce tu DNI con letra, sin espacios ni guiones
+            </p>
+          </div>
+          <button 
+            type="submit"
+            class="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 text-lg"
+          >
+            Verificar DNI
+          </button>
+        </form>
+      {% endif %}
+
+      {% if persona and habitaciones_disponibles %}
+        <div class="mb-8">
+          <p class="text-xl text-gray-700">
+            Hola <span class="font-semibold">{{ persona.nombre }}</span>, 
+            {% if persona.habitacion %}
+              actualmente estás en la habitación {{ persona.habitacion.numero }}.
+            {% else %}
+              elige una habitación:
+            {% endif %}
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {% for hab in habitaciones_disponibles %}
+            <div class="{% if persona.habitacion and persona.habitacion.id == hab.id %}bg-blue-50 border-blue-200{% else %}bg-white border-gray-200{% endif %} 
+                        border-2 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200">
+              <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                  <h3 class="text-2xl font-bold text-gray-800">
+                    Habitación {{ hab.numero }}
+                    {% if persona.habitacion and persona.habitacion.id == hab.id %}
+                      <span class="ml-2 text-sm font-medium text-blue-600">(Tu habitación actual)</span>
+                    {% endif %}
+                  </h3>
+                  <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
+                    {{ hab.get_tipo_display }}
+                  </span>
+                </div>
+                
+                <div class="space-y-3 mb-6">
+                  <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <p class="text-gray-600">
+                      Ocupación: <span class="font-medium">{{ hab.persona_set.count }} de {{ hab.capacidad }}</span>
+                    </p>
+                  </div>
+                  {% if hab.descripcion %}
+                    <p class="text-gray-600">
+                      {{ hab.descripcion }}
+                    </p>
+                  {% endif %}
+                </div>
+
+                {% if persona.habitacion and persona.habitacion.id == hab.id %}
+                  <button 
+                    type="button"
+                    disabled
+                    class="w-full py-3 bg-blue-100 text-blue-700 font-semibold rounded-lg cursor-not-allowed"
+                  >
+                    Habitación Actual
+                  </button>
+                {% else %}
+                  <form method="post" class="mt-auto" onsubmit="return handleSubmit(event, '{{ hab.numero }}')">
+                    {% csrf_token %}
+                    <input type="hidden" name="dni" value="{{ persona.dni }}">
+                    <input type="hidden" name="habitacion_id" value="{{ hab.id }}">
+                    <button 
+                      type="submit"
+                      name="asignar_habitacion"
+                      value="true"
+                      class="w-full py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200"
+                    >
+                      {% if persona.habitacion %}
+                        Cambiar a esta habitación
+                      {% else %}
+                        Seleccionar habitación
+                      {% endif %}
+                    </button>
+                  </form>
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <script>
+    // Mejorar validación del DNI
+    document.addEventListener('DOMContentLoaded', function() {
+      const dniForm = document.getElementById('dniForm');
+      const dniInput = document.getElementById('dni');
+
+      if (dniForm) {
+        dniForm.addEventListener('submit', function(e) {
+          const dni = dniInput.value.toUpperCase();
+          const dniRegex = /^[0-9]{8}[A-Z]$/;
+          
+          if (!dniRegex.test(dni)) {
+            e.preventDefault();
+            alert('Por favor, introduce un DNI válido (8 números seguidos de una letra)');
+            return false;
+          }
+          
+          showLoading();
+        });
+      }
+    });
+
+    // Mejorar manejo de cambio de habitación
+    function handleSubmit(event, numHab) {
+      if (!confirm(`¿Estás seguro de que deseas cambiar a la habitación ${numHab}?`)) {
+        event.preventDefault();
+        return false;
+      }
+      
+      showLoading();
+      return true;
+    }
+
+    // Mostrar overlay de carga
+    function showLoading() {
+      const overlay = document.getElementById('loadingOverlay');
+      if (overlay) {
+        overlay.classList.remove('hidden');
+      }
+    }
+  </script>
+</body>
+</html>

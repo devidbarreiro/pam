@@ -2,7 +2,7 @@
 
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, DetailView, UpdateView, DeleteView, View
-from .models import Escapada, Alojamiento, Habitacion, Persona, EscapadaAlojamiento  # Asegúrate de importar EscapadaAlojamiento
+from .models import Escapada, Alojamiento, Habitacion, Persona, EscapadaAlojamiento, Inscripcion  # Asegúrate de importar EscapadaAlojamiento
 from .forms import EscapadaAlojamientoForm, EscapadaAlojamientoMultipleForm, HabitacionFormSet
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import FormView, TemplateView
@@ -136,7 +136,6 @@ class HabitacionListView(ListView):
     template_name = 'habitacion/habitacion_list.html'
     context_object_name = 'habitaciones'
 
-# views.py
 class HabitacionCreateView(CreateView):
     model = Habitacion
     fields = ['numero', 'capacidad', 'tipo', 'descripcion', 'estado']
@@ -171,7 +170,6 @@ class HabitacionCreateView(CreateView):
             # Si hay más de una escapada, el usuario debe elegir manualmente
             form.add_error(None, "Este alojamiento está asociado a varias escapadas. Selecciona la escapada manualmente en 'escapada_alojamiento'.")
             return self.form_invalid(form)
-
 
 class HabitacionDetailView(DetailView):
     model = Habitacion
@@ -288,7 +286,71 @@ class HabitacionMultipleCreateView(View):
             'formset': formset,
             'escapada_alojamiento': ea,
         })
-        
+     
+class HabitacionMultipleAutoCreateView(CreateView):
+    """
+    Crea varias habitaciones para UN EscapadaAlojamiento concreto (sin select).
+    """
+    model = Habitacion
+    fields = ['capacidad', 'tipo', 'descripcion', 'estado']  # Sin 'numero'
+    template_name = 'habitacion/habitacion_multiple_auto_form.html'
+    success_url = reverse_lazy('habitacion_list')
+
+    def dispatch(self, request, *args, **kwargs):
+        """
+        Captura el <int:ea_id> y obtén la instancia de EscapadaAlojamiento.
+        """
+        self.ea_id = kwargs.get('ea_id')  # Viene de la URL
+        self.escapada_alojamiento = get_object_or_404(EscapadaAlojamiento, pk=self.ea_id)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Pasamos datos al template para mostrar info de la escapada y el alojamiento
+        context['ea'] = self.escapada_alojamiento
+        context['alojamiento'] = self.escapada_alojamiento.alojamiento
+        return context
+
+    def form_valid(self, form):
+        """
+        Se crea N habitaciones con numeración consecutiva, 
+        sin que el usuario escoja la escapada (la tenemos de self.escapada_alojamiento).
+        """
+        # 1) Leemos la cantidad de habitaciones y número inicial del POST
+        cantidad_str = self.request.POST.get('cantidad_habitaciones', '1')
+        numero_inicial_str = self.request.POST.get('numero_inicial', '1')
+
+        try:
+            cantidad = int(cantidad_str)
+            numero_inicial = int(numero_inicial_str)
+        except ValueError:
+            form.add_error(None, "Cantidad o Número inicial inválidos. Deben ser enteros.")
+            return self.form_invalid(form)
+
+        if cantidad < 1:
+            form.add_error(None, "La cantidad de habitaciones debe ser al menos 1.")
+            return self.form_invalid(form)
+
+        # 2) Tomamos los datos base (capacidad, tipo, descripcion, estado)
+        base_room = form.save(commit=False)
+        # No guardamos base_room aún, porque lo usaremos como "plantilla" para N habitaciones
+
+        # 3) Creamos cada una de las N habitaciones
+        for i in range(cantidad):
+            numero_hab = numero_inicial + i
+            nueva = Habitacion(
+                escapada_alojamiento=self.escapada_alojamiento,
+                numero=str(numero_hab),
+                capacidad=base_room.capacidad,
+                tipo=base_room.tipo,
+                descripcion=base_room.descripcion,
+                estado=base_room.estado
+            )
+            nueva.save()
+
+        return redirect(self.success_url)
+
+   
 # -------------------
 # VIEWS PARA PERSONA
 # -------------------
@@ -331,3 +393,143 @@ class EscapadaAlojamientoListView(TemplateView):
         # Recupera todas las escapadas
         context['escapadas'] = Escapada.objects.all()
         return context
+
+from django.utils import timezone
+from datetime import timedelta
+
+class EscapadaInscripcionView(TemplateView):
+    template_name = 'escapada/inscripcion_escapada.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        self.escapada_id = kwargs.get('pk')
+        self.escapada = get_object_or_404(Escapada, pk=self.escapada_id)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['escapada'] = self.escapada
+        return context
+
+    def post(self, request, *args, **kwargs):
+        context = self.get_context_data(**kwargs)
+        
+        dni = request.POST.get('dni')
+        asignar = request.POST.get('asignar_habitacion')
+        habitacion_id = request.POST.get('habitacion_id')
+
+        if asignar == 'true' and habitacion_id:
+            # Paso 3: El usuario ya eligió una habitación.
+            return self.asignar_habitacion(request, context, dni, habitacion_id)
+        else:
+            # Paso 1 y 2: El usuario recién ingresó su DNI (o repite).
+            return self.verificar_dni(request, context, dni)
+
+    def verificar_dni(self, request, context, dni):
+        if not dni:
+            context['error_message'] = "Por favor, ingresa tu DNI."
+            return self.render_to_response(context)
+
+        # Buscamos la persona por dni
+        try:
+            persona = Persona.objects.get(dni=dni)
+        except Persona.DoesNotExist:
+            context['error_message'] = "No se encontró ninguna persona con ese DNI."
+            return self.render_to_response(context)
+
+        # Verificamos si está inscrita y ha pagado en esta escapada
+        try:
+            inscripcion = Inscripcion.objects.get(persona=persona, escapada=self.escapada)
+        except Inscripcion.DoesNotExist:
+            context['error_message'] = "No estás inscrito en esta escapada."
+            return self.render_to_response(context)
+
+        if not inscripcion.ha_pagado:
+            context['error_message'] = "Tu pago no está registrado. Contacta a la organización."
+            return self.render_to_response(context)
+
+        # Obtenemos las habitaciones disponibles (misma lógica que antes)    
+        ea_list = EscapadaAlojamiento.objects.filter(escapada=self.escapada)
+
+        habitaciones_disponibles = []
+
+        for ea in ea_list:
+            # Habitaciones libres en este EA
+            habs_libres = ea.habitaciones.filter(estado='disponible')
+            habitaciones_disponibles.extend(habs_libres)
+
+        # --> AGREGAMOS la habitación actual del usuario si pertenece a esta escapada
+        if persona.habitacion:
+            escapada_de_habitacion_actual = persona.habitacion.escapada_alojamiento.escapada
+            if escapada_de_habitacion_actual == self.escapada:
+                # Añadimos la habitación actual a la lista, si no está ya
+                if persona.habitacion not in habitaciones_disponibles:
+                    habitaciones_disponibles.append(persona.habitacion)
+
+        if not habitaciones_disponibles:
+            context['error_message'] = "No hay habitaciones disponibles en esta escapada."
+            return self.render_to_response(context)
+
+        context['persona'] = persona
+        context['habitaciones_disponibles'] = habitaciones_disponibles
+        return self.render_to_response(context)
+
+
+    def asignar_habitacion(self, request, context, dni, habitacion_id):
+        try:
+            persona = Persona.objects.get(dni=dni)
+        except Persona.DoesNotExist:
+            context['error_message'] = "Error interno: Persona no encontrada."
+            return self.render_to_response(context)
+
+        try:
+            habitacion = Habitacion.objects.get(pk=habitacion_id)
+        except Habitacion.DoesNotExist:
+            context['error_message'] = "La habitación seleccionada no existe."
+            return self.render_to_response(context)
+
+        # 1) Verificar si la Persona ya tiene una habitación en ESTA escapada
+        #    (es decir, si su habitacion pertenece a la misma escapada_alojamiento.escapada).
+        habitacion_actual = persona.habitacion
+        ya_tiene_habitacion_en_esta_escapada = False
+
+        if habitacion_actual:
+            escapada_actual_de_la_persona = habitacion_actual.escapada_alojamiento.escapada
+            if escapada_actual_de_la_persona == self.escapada:
+                ya_tiene_habitacion_en_esta_escapada = True
+
+        # 2) Si ya tenía habitación, verificar si podemos cambiarla
+        if ya_tiene_habitacion_en_esta_escapada:
+            # Chequeamos la fecha de inicio y si faltan más de 3 días
+            fecha_ini = self.escapada.fecha_ini
+            if fecha_ini:
+                # Calculamos la diferencia con la fecha actual
+                dias_restantes = (fecha_ini - timezone.now().date()).days
+                if dias_restantes < 3:
+                    # No permitir cambio
+                    context['error_message'] = (
+                        "Faltan menos de 3 días para el inicio de la escapada; no puedes cambiar de habitación."
+                    )
+                    return self.render_to_response(context)
+                # Si faltan 3 o más días, se permite el cambio
+            # Si no hay fecha_ini, se permite cambiar siempre
+
+        # 3) Proceder con la asignación
+        #    - Marcar la anterior habitación como 'disponible' si queremos “liberarla”
+        #      o depende de tu lógica de “ocupada” vs “reservada”.
+        #    - Asignar la nueva habitación
+        if habitacion_actual and habitacion_actual != habitacion:
+            # Liberar la habitación anterior (opcional, según tu lógica)
+            habitacion_actual.estado = 'disponible'
+            habitacion_actual.save()
+
+        # Marcar la nueva habitación como ocupada
+        habitacion.estado = 'ocupada'
+        habitacion.save()
+
+        # Asignar la nueva habitación a la persona
+        persona.habitacion = habitacion
+        persona.save()
+
+        context['success_message'] = f"Habitación {habitacion.numero} asignada correctamente."
+        return self.render_to_response(context)
+

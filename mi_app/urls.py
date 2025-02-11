@@ -15,9 +15,9 @@ urlpatterns = [
     path('escapadas/<int:pk>/eliminar/', views.EscapadaDeleteView.as_view(), name='escapada_delete'),
     # NUEVA URL: Seleccionar alojamientos para una escapada
     path('escapadas/<int:pk>/alojamientos/', views.EscapadaAlojamientoSelectView.as_view(), name='escapada_alojamiento_select'),
-    path('escapadas/<int:pk>/asociar-alojamientos/', 
-     views.EscapadaAlojamientoMultipleCreateView.as_view(), 
-     name='escapada_alojamiento_multiple_create'),
+    path('escapadas/<int:pk>/asociar-alojamientos/', views.EscapadaAlojamientoMultipleCreateView.as_view(), name='escapada_alojamiento_multiple_create'),
+    path('escapadas/<int:pk>/inscripcion/', views.EscapadaInscripcionView.as_view(), name='escapada_inscripcion'),
+
 
 
     # URLs para Alojamiento
@@ -33,8 +33,16 @@ urlpatterns = [
     path('habitaciones/<int:pk>/', views.HabitacionDetailView.as_view(), name='habitacion_detail'),
     path('habitaciones/<int:pk>/editar/', views.HabitacionUpdateView.as_view(), name='habitacion_update'),
     path('habitaciones/<int:pk>/eliminar/', views.HabitacionDeleteView.as_view(), name='habitacion_delete'),
+    # Vista que crea 1 habitación (automática o manual)
     path('habitaciones/crear-para-alojamiento/', views.HabitacionCreateForAlojamientoView.as_view(), name='habitacion_create_for_alojamiento'),
-    path('habitaciones/multiple/<int:ea_id>/',views.HabitacionMultipleCreateView.as_view(),name='habitacion_multiple_create'),
+    # Vista que crea varias habitaciones con formset
+    path('habitaciones/multiple/<int:ea_id>/', views.HabitacionMultipleCreateView.as_view(), name='habitacion_multiple_create'),
+
+    # Vista que crea varias habitaciones pidiendo cantidad 
+    path(
+    'habitaciones/crear-variashabs/<int:ea_id>/',
+    views.HabitacionMultipleAutoCreateView.as_view(),
+    name='habitacion_multiple_auto_create'),
 
     # URLs para Persona
     path('personas/', views.PersonaListView.as_view(), name='persona_list'),

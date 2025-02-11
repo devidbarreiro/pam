@@ -6,20 +6,24 @@
 {% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50 py-8">
-  <div class="max-w-3xl mx-auto bg-white shadow-lg rounded-lg p-6">
-    <!-- Breadcrumb -->
-    <nav class="mb-4 text-sm" aria-label="Breadcrumb">
-      <ol class="list-none p-0 inline-flex text-gray-600">
+<div class="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-8 px-4">
+  <div class="max-w-3xl mx-auto bg-white shadow-xl rounded-xl p-8">
+    <!-- Breadcrumb with improved accessibility -->
+    <nav class="mb-6" aria-label="Breadcrumb">
+      <ol class="list-none p-0 inline-flex items-center space-x-2 text-gray-600">
         <li class="flex items-center">
-          <a href="{% url 'home' %}" class="hover:text-blue-600">Home</a>
-          <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
+          <a href="{% url 'home' %}" class="hover:text-blue-600 transition-colors duration-200" aria-label="Ir a inicio">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+            </svg>
+          </a>
+          <svg class="w-5 h-5 mx-2" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
           </svg>
         </li>
         <li class="flex items-center">
-          <a href="{% url 'alojamiento_list' %}" class="hover:text-blue-600">Alojamientos</a>
-          <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
+          <a href="{% url 'alojamiento_list' %}" class="hover:text-blue-600 transition-colors duration-200">Alojamientos</a>
+          <svg class="w-5 h-5 mx-2" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
           </svg>
         </li>
@@ -29,18 +33,26 @@
       </ol>
     </nav>
 
-    <h2 class="text-2xl font-bold mb-4 text-gray-900">
-      {% if object %}Editar Escapada{% else %}Crear Escapada{% endif %}
-    </h2>
+    <div class="border-b border-gray-200 pb-4 mb-6">
+      <h2 class="text-3xl font-bold text-gray-900">
+        {% if object %}Editar Escapada{% else %}Crear Escapada{% endif %}
+      </h2>
+      <p class="mt-2 text-gray-600">Complete los campos necesarios para {% if object %}actualizar{% else %}crear{% endif %} la escapada.</p>
+    </div>
 
-    <!-- Errores -->
+    <!-- Errores mejorados -->
     {% if form.errors %}
-      <div class="bg-red-100 text-red-700 p-4 mb-4 rounded">
-        <p class="font-semibold">Por favor, corrige los siguientes errores:</p>
-        <ul class="list-disc pl-6">
+      <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded" role="alert">
+        <div class="flex items-center mb-2">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="font-semibold">Por favor, corrige los siguientes errores:</span>
+        </div>
+        <ul class="list-disc pl-8 space-y-1">
           {% for field in form %}
             {% for error in field.errors %}
-              <li>{{ error }}</li>
+              <li>{{ field.label }}: {{ error }}</li>
             {% endfor %}
           {% endfor %}
           {% for error in form.non_field_errors %}
@@ -50,112 +62,204 @@
       </div>
     {% endif %}
 
-    <form method="post" enctype="multipart/form-data" class="space-y-6">
+    <form method="post" enctype="multipart/form-data" class="space-y-6" novalidate>
       {% csrf_token %}
 
-      <!-- Campo ID (Lectura) -->
-      <div class="space-y-2">
-        <label for="{{ form.id.id_for_label }}" class="block text-sm font-medium text-gray-700">
-          ID (Autogenerado)
-        </label>
-        {{ form.id|add_class:"w-full p-2 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none" }}
-        <!-- Como está deshabilitado, el usuario no puede modificarlo -->
-      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- ID (Read-only) -->
+        <div class="col-span-full">
+          <label for="{{ form.id.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            ID (Autogenerado)
+          </label>
+          {{ form.id|add_class:"w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none cursor-not-allowed text-gray-500"|attr:"readonly" }}
+        </div>
 
-      <!-- Campo Nombre (Obligatorio) -->
-      <div class="space-y-2">
-        <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-gray-700">
-          Nombre de la Escapada <span class="text-red-500">*</span>
-        </label>
-        {{ form.nombre|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
-      </div>
+        <!-- Nombre -->
+        <div class="col-span-full">
+          <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            Nombre de la Escapada <span class="text-red-500">*</span>
+          </label>
+          {{ form.nombre|add_class:"w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"|attr:"placeholder:Ingrese el nombre de la escapada" }}
+          {% if form.nombre.help_text %}
+            <p class="mt-1 text-sm text-gray-500">{{ form.nombre.help_text }}</p>
+          {% endif %}
+        </div>
 
-      <!-- Campo Tipo (Obligatorio) -->
-      <div class="space-y-2">
-        <label for="{{ form.tipo.id_for_label }}" class="block text-sm font-medium text-gray-700">
-          Tipo de Escapada <span class="text-red-500">*</span>
-        </label>
-        {{ form.tipo|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
-      </div>
+        <!-- Tipo y Estado en la misma fila -->
+        <div>
+          <label for="{{ form.tipo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            Tipo de Escapada <span class="text-red-500">*</span>
+          </label>
+          {{ form.tipo|add_class:"w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" }}
+        </div>
 
-      <!-- Campo Estado (Obligatorio) -->
-      <div class="space-y-2">
-        <label for="{{ form.estado.id_for_label }}" class="block text-sm font-medium text-gray-700">
-          Estado <span class="text-red-500">*</span>
-        </label>
-        {{ form.estado|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
-      </div>
+        <div>
+          <label for="{{ form.estado.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            Estado <span class="text-red-500">*</span>
+          </label>
+          {{ form.estado|add_class:"w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" }}
+        </div>
 
-      <!-- Campo Número de Plazas (Opcional si lo deseas) -->
-      <div class="space-y-2">
-        <label for="{{ form.num_plazas.id_for_label }}" class="block text-sm font-medium text-gray-700">
-          Número de Plazas
-        </label>
-        {{ form.num_plazas|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
-      </div>
+        <!-- Fechas en la misma fila -->
+        <div>
+          <label for="{{ form.fecha_ini.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            Fecha de Inicio
+          </label>
+          {{ form.fecha_ini|add_class:"w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"|attr:"type:date" }}
+        </div>
 
-      <!-- Campo Fecha de Inicio (Opcional / Requerido según tu necesidad) -->
-      <div class="space-y-2">
-        <label for="{{ form.fecha_ini.id_for_label }}" class="block text-sm font-medium text-gray-700">
-          Fecha de Inicio
-        </label>
-        {{ form.fecha_ini }}
-        <!-- 
-          o si prefieres:
-          <input type="date" name="fecha_ini" value="{{ form.fecha_ini.value|default_if_none:'' }}" ...>
-        -->
-      </div>
+        <div>
+          <label for="{{ form.fecha_fin.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            Fecha de Fin
+          </label>
+          {{ form.fecha_fin|add_class:"w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"|attr:"type:date" }}
+        </div>
 
-      <!-- Campo Fecha de Fin (Opcional / Requerido según tu necesidad) -->
-      <div class="space-y-2">
-        <label for="{{ form.fecha_fin.id_for_label }}" class="block text-sm font-medium text-gray-700">
-          Fecha de Fin
-        </label>
-        {{ form.fecha_fin }}
-      </div>
+        <!-- Lugar y Plazas en la misma fila -->
+        <div>
+          <label for="{{ form.lugar.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            Lugar
+          </label>
+          {{ form.lugar|add_class:"w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" }}
+        </div>
 
-      <!-- Campo Lugar (Opcional / Requerido según tu necesidad) -->
-      <div class="space-y-2">
-        <label for="{{ form.lugar.id_for_label }}" class="block text-sm font-medium text-gray-700">
-          Lugar
-        </label>
-        {{ form.lugar|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
-      </div>
+        <div>
+          <label for="{{ form.num_plazas.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            Número de Plazas
+          </label>
+          {{ form.num_plazas|add_class:"w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"|attr:"type:number,min:0" }}
+        </div>
 
-      <!-- URL Formulario de Inscripción (Opcional) -->
-      <div class="space-y-2">
-        <label for="{{ form.url_formulario_inscripcion.id_for_label }}" class="block text-sm font-medium text-gray-700">
-          URL Formulario de Inscripción (opcional)
-        </label>
-        {{ form.url_formulario_inscripcion|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
-      </div>
+        <!-- URL Formulario -->
+        <div class="col-span-full">
+          <label for="{{ form.url_formulario_inscripcion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            URL Formulario de Inscripción
+          </label>
+          {{ form.url_formulario_inscripcion|add_class:"w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"|attr:"placeholder:https://..." }}
+        </div>
 
-      <!-- Descripción (Opcional) -->
-      <div class="space-y-2">
-        <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-gray-700">
-          Descripción (opcional)
-        </label>
-        {{ form.descripcion|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
-      </div>
+        <!-- Descripción -->
+        <div class="col-span-full">
+          <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            Descripción
+          </label>
+          {{ form.descripcion|add_class:"w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"|attr:"rows:4" }}
+        </div>
 
-      <!-- Imagen (Opcional) -->
-      <div class="space-y-2">
-        <label for="{{ form.imagen.id_for_label }}" class="block text-sm font-medium text-gray-700">
-          Imagen (opcional)
-        </label>
-        {{ form.imagen|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+        <!-- Imagen -->
+        <div class="col-span-full">
+          <label for="{{ form.imagen.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            Imagen
+          </label>
+          <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
+            <div class="space-y-1 text-center">
+              <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              <div class="flex text-sm text-gray-600">
+                <label for="{{ form.imagen.id_for_label }}" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                  {{ form.imagen|add_class:"sr-only" }}
+                  <span>Subir archivo</span>
+                </label>
+                <p class="pl-1">o arrastrar y soltar</p>
+              </div>
+              <p class="text-xs text-gray-500">PNG, JPG, GIF hasta 10MB</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Botones de Acción -->
-      <div class="mt-6 flex justify-end space-x-4">
-        <a href="{% url 'escapada_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+      <div class="mt-8 flex justify-end space-x-4 border-t pt-6">
+        <a href="{% url 'escapada_list' %}" 
+           class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
           Cancelar
         </a>
-        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        <button type="submit" 
+                class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
           Guardar
         </button>
       </div>
     </form>
   </div>
 </div>
+
+<!-- Script para preview de imagen -->
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const imageInput = document.querySelector('input[type="file"]');
+    const previewContainer = imageInput.closest('div');
+
+    imageInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const preview = document.createElement('img');
+          preview.src = e.target.result;
+          preview.classList.add('mt-2', 'rounded', 'max-h-48', 'mx-auto');
+          
+          // Remove any existing preview
+          const existingPreview = previewContainer.querySelector('img');
+          if (existingPreview) {
+            existingPreview.remove();
+          }
+          
+          // Add new preview
+          previewContainer.appendChild(preview);
+        }
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Drag and drop functionality
+    const dropZone = previewContainer.querySelector('.border-dashed');
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+      dropZone.classList.add('border-blue-500', 'bg-blue-50');
+    }
+
+    function unhighlight(e) {
+      dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+    }
+
+    dropZone.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+      const dt = e.dataTransfer;
+      const file = dt.files[0];
+      
+      if (file && file.type.startsWith('image/')) {
+        imageInput.files = dt.files;
+        const event = new Event('change');
+        imageInput.dispatchEvent(event);
+      }
+    }
+  });
+</script>
+{% endblock %}
 {% endblock %}

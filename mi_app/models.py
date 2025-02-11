@@ -1,6 +1,7 @@
 # models.py
 
 from django.db import models
+from django.utils import timezone
 
 TIPO_ESCAPADA_CHOICES = [
     ('universitarios', 'Universitarios'),
@@ -114,3 +115,16 @@ class Persona(models.Model):
 
     def __str__(self):
         return f"{self.nombre} ({self.dni})"
+
+class Inscripcion(models.Model):
+    persona = models.ForeignKey('Persona', on_delete=models.CASCADE, related_name='inscripciones')
+    escapada = models.ForeignKey('Escapada', on_delete=models.CASCADE, related_name='inscripciones')
+    
+    ha_pagado = models.BooleanField(default=False)
+    tipo_habitacion_preferida = models.CharField(max_length=20, blank=True, null=True)
+
+    # Ajustamos fecha_inscripcion para que se asigne automáticamente
+    fecha_inscripcion = models.DateTimeField(blank=True, null=True, default=timezone.now)
+
+    def __str__(self):
+        return f"{self.persona} - {self.escapada}"
