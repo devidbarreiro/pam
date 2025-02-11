@@ -1,0 +1,60 @@
+<!-- form_base.html -->
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if object %}
+        Editar {{ object.__class__.__name__ }}
+    {% else %}
+        Crear {{ form.instance.__class__.__name__ }}
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+  <div class="max-w-3xl mx-auto bg-white shadow rounded-lg p-6">
+    <h2 class="text-2xl font-bold mb-6">
+      {% if object %}
+        Editar {{ object.__class__.__name__ }}
+      {% else %}
+        Crear {{ form.instance.__class__.__name__ }}
+      {% endif %}
+    </h2>
+
+    {% if messages %}
+      <div class="mb-4">
+        {% for message in messages %}
+          <div class="bg-{{ message.tags }}-100 text-{{ message.tags }}-800 p-4 rounded mb-2">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      
+      <!-- Aquí es donde se renderizan los campos de formulario -->
+      <div class="space-y-4">
+        {% block form_fields %}
+        <!-- Aquí se llenarán los campos del formulario -->
+        {% endblock %}
+      </div>
+
+      <!-- Botones -->
+      <div class="mt-6 flex justify-between">
+        <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5 mr-2">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 13l-7 7-7-7"></path>
+          </svg>
+          Guardar
+        </button>
+
+        <a href="{% url 'alojamiento_list' %}" class="ml-4 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5 mr-2">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+          </svg>
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}Detalle de Habitación - Gestión de Escapadas{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white shadow rounded-lg p-6">
+  <h2 class="text-2xl font-bold mb-4">Detalle de Habitación</h2>
+  <div class="mb-4 space-y-2">
+    <p><strong>Número:</strong> {{ habitacion.numero }}</p>
+    <p><strong>Capacidad:</strong> {{ habitacion.capacidad }}</p>
+    <p><strong>Tipo:</strong> {{ habitacion.get_tipo_display }}</p>
+    {% if habitacion.descripcion %}
+      <p><strong>Descripción:</strong> {{ habitacion.descripcion }}</p>
+    {% endif %}
+    <p><strong>Estado:</strong> {{ habitacion.estado }}</p>
+    {% if habitacion.escapada_alojamiento %}
+      <p><strong>Escapada-Alojamiento:</strong> {{ habitacion.escapada_alojamiento }}</p>
+    {% endif %}
+  </div>
+  <div class="flex space-x-4">
+    <a href="{% url 'habitacion_update' habitacion.pk %}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Editar</a>
+    <a href="{% url 'habitacion_delete' habitacion.pk %}" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Eliminar</a>
+    <a href="{% url 'habitacion_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Volver a la Lista</a>
+  </div>
+</div>
+{% endblock %}

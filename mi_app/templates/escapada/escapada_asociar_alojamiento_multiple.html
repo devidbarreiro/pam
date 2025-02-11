@@ -1,0 +1,22 @@
+<!-- escapada/escapada_asociar_alojamiento_multiple.html -->
+{% extends 'base.html' %}
+{% block title %}Asociar Alojamientos a Escapada: {{ escapada.nombre }}{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white shadow rounded-lg p-6">
+  <h2 class="text-2xl font-bold mb-4">Asociar Alojamientos a la Escapada: {{ escapada.nombre }}</h2>
+  <form method="post">
+    {% csrf_token %}
+    <div class="space-y-4">
+      {{ form.as_p }}
+    </div>
+    <div class="mt-6">
+      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        Aceptar
+      </button>
+      <a href="{% url 'escapada_detail' escapada.pk %}" class="ml-4 px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+        Cancelar
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

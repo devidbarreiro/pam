@@ -1,0 +1,38 @@
+<!-- templates\alojamiento\escapada_alojamiento_select.html -->
+{% extends 'base.html' %}
+{% block title %}Seleccionar Alojamientos - {{ escapada.nombre }}{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white shadow rounded-lg p-6">
+  <h2 class="text-2xl font-bold mb-4">Alojamientos para la Escapada: {{ escapada.nombre }}</h2>
+  <p class="mb-4"><strong>Fechas:</strong> {{ escapada.fecha_ini }} a {{ escapada.fecha_fin }} | <strong>Lugar:</strong> {{ escapada.lugar }}</p>
+  <table class="min-w-full divide-y divide-gray-200">
+    <thead>
+      <tr>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dirección</th>
+        <th class="px-6 py-3"></th>
+      </tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-gray-200">
+      {% for ea in alojamientos_rel %}
+      <tr>
+        <td class="px-6 py-4 whitespace-nowrap">{{ ea.alojamiento.nombre }}</td>
+        <td class="px-6 py-4 whitespace-nowrap">{{ ea.alojamiento.direccion }}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+          <a href="{% url 'escapada_alojamiento_add' escapada.pk ea.alojamiento.pk %}" class="text-blue-600 hover:text-blue-900">Seleccionar</a>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="3" class="px-6 py-4 text-center">No hay alojamientos asociados a esta escapada.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="mt-4">
+    <a href="{% url 'escapada_detail' escapada.pk %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+      Volver al Detalle de la Escapada
+    </a>
+  </div>
+</div>
+{% endblock %}

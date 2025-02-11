@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block title %}
+  {% if object %}Editar Escapada{% else %}Crear Escapada{% endif %} - Gestión de Escapadas
+{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8">
+  <div class="max-w-3xl mx-auto bg-white shadow-lg rounded-lg p-6">
+    <!-- Breadcrumb -->
+    <nav class="mb-4 text-sm" aria-label="Breadcrumb">
+      <ol class="list-none p-0 inline-flex text-gray-600">
+        <li class="flex items-center">
+          <a href="{% url 'home' %}" class="hover:text-blue-600">Home</a>
+          <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+          </svg>
+        </li>
+        <li class="flex items-center">
+          <a href="{% url 'alojamiento_list' %}" class="hover:text-blue-600">Alojamientos</a>
+          <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+          </svg>
+        </li>
+        <li>
+          <span class="text-gray-800 font-medium">{{ object|yesno:"Editar,Crear" }} Escapada</span>
+        </li>
+      </ol>
+    </nav>
+
+    <h2 class="text-2xl font-bold mb-4 text-gray-900">
+      {% if object %}Editar Escapada{% else %}Crear Escapada{% endif %}
+    </h2>
+
+    <!-- Errores -->
+    {% if form.errors %}
+      <div class="bg-red-100 text-red-700 p-4 mb-4 rounded">
+        <p class="font-semibold">Por favor, corrige los siguientes errores:</p>
+        <ul class="list-disc pl-6">
+          {% for field in form %}
+            {% for error in field.errors %}
+              <li>{{ error }}</li>
+            {% endfor %}
+          {% endfor %}
+          {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
+      {% csrf_token %}
+
+      <!-- Campo ID (Lectura) -->
+      <div class="space-y-2">
+        <label for="{{ form.id.id_for_label }}" class="block text-sm font-medium text-gray-700">
+          ID (Autogenerado)
+        </label>
+        {{ form.id|add_class:"w-full p-2 bg-gray-100 border border-gray-300 rounded-lg focus:outline-none" }}
+        <!-- Como está deshabilitado, el usuario no puede modificarlo -->
+      </div>
+
+      <!-- Campo Nombre (Obligatorio) -->
+      <div class="space-y-2">
+        <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-gray-700">
+          Nombre de la Escapada <span class="text-red-500">*</span>
+        </label>
+        {{ form.nombre|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+      </div>
+
+      <!-- Campo Tipo (Obligatorio) -->
+      <div class="space-y-2">
+        <label for="{{ form.tipo.id_for_label }}" class="block text-sm font-medium text-gray-700">
+          Tipo de Escapada <span class="text-red-500">*</span>
+        </label>
+        {{ form.tipo|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+      </div>
+
+      <!-- Campo Estado (Obligatorio) -->
+      <div class="space-y-2">
+        <label for="{{ form.estado.id_for_label }}" class="block text-sm font-medium text-gray-700">
+          Estado <span class="text-red-500">*</span>
+        </label>
+        {{ form.estado|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+      </div>
+
+      <!-- Campo Número de Plazas (Opcional si lo deseas) -->
+      <div class="space-y-2">
+        <label for="{{ form.num_plazas.id_for_label }}" class="block text-sm font-medium text-gray-700">
+          Número de Plazas
+        </label>
+        {{ form.num_plazas|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+      </div>
+
+      <!-- Campo Fecha de Inicio (Opcional / Requerido según tu necesidad) -->
+      <div class="space-y-2">
+        <label for="{{ form.fecha_ini.id_for_label }}" class="block text-sm font-medium text-gray-700">
+          Fecha de Inicio
+        </label>
+        {{ form.fecha_ini }}
+        <!-- 
+          o si prefieres:
+          <input type="date" name="fecha_ini" value="{{ form.fecha_ini.value|default_if_none:'' }}" ...>
+        -->
+      </div>
+
+      <!-- Campo Fecha de Fin (Opcional / Requerido según tu necesidad) -->
+      <div class="space-y-2">
+        <label for="{{ form.fecha_fin.id_for_label }}" class="block text-sm font-medium text-gray-700">
+          Fecha de Fin
+        </label>
+        {{ form.fecha_fin }}
+      </div>
+
+      <!-- Campo Lugar (Opcional / Requerido según tu necesidad) -->
+      <div class="space-y-2">
+        <label for="{{ form.lugar.id_for_label }}" class="block text-sm font-medium text-gray-700">
+          Lugar
+        </label>
+        {{ form.lugar|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+      </div>
+
+      <!-- URL Formulario de Inscripción (Opcional) -->
+      <div class="space-y-2">
+        <label for="{{ form.url_formulario_inscripcion.id_for_label }}" class="block text-sm font-medium text-gray-700">
+          URL Formulario de Inscripción (opcional)
+        </label>
+        {{ form.url_formulario_inscripcion|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+      </div>
+
+      <!-- Descripción (Opcional) -->
+      <div class="space-y-2">
+        <label for="{{ form.descripcion.id_for_label }}" class="block text-sm font-medium text-gray-700">
+          Descripción (opcional)
+        </label>
+        {{ form.descripcion|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+      </div>
+
+      <!-- Imagen (Opcional) -->
+      <div class="space-y-2">
+        <label for="{{ form.imagen.id_for_label }}" class="block text-sm font-medium text-gray-700">
+          Imagen (opcional)
+        </label>
+        {{ form.imagen|add_class:"w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+      </div>
+
+      <!-- Botones de Acción -->
+      <div class="mt-6 flex justify-end space-x-4">
+        <a href="{% url 'escapada_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+          Cancelar
+        </a>
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+          Guardar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

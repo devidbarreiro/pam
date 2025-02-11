@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white shadow rounded p-6">
+  <h2 class="text-2xl font-bold mb-4">
+    Crear Habitación para Alojamiento: {{ alojamiento.nombre }}
+  </h2>
+
+  {% if form.errors %}
+    <div class="bg-red-100 text-red-700 p-4 mb-4 rounded">
+      <p class="font-semibold">Por favor, corrige los siguientes errores:</p>
+      <ul class="list-disc pl-6">
+        {% for field in form %}
+          {% for error in field.errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        {% endfor %}
+        {% for error in form.non_field_errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+
+    <!-- Campo para seleccionar la relación EscapadaAlojamiento -->
+    {% if posibles_escapadas %}
+      <label class="block mb-1">Asociar a la Escapada:</label>
+      <select name="escapada_alojamiento_id" class="mb-4 p-2 border border-gray-300 rounded w-full">
+        <option value="">-- Seleccione la Escapada --</option>
+        {% for ea in posibles_escapadas %}
+          <option value="{{ ea.pk }}">{{ ea.escapada }} ({{ ea.alojamiento }})</option>
+        {% endfor %}
+      </select>
+    {% else %}
+      <p class="text-sm text-red-500">Este alojamiento no está asociado a ninguna Escapada. Por favor, asócialo antes de crear habitaciones.</p>
+    {% endif %}
+
+    <!-- El resto de campos (numero, capacidad, etc.) provienen de form -->
+    <div class="space-y-4">
+      {% for field in form %}
+        {% if field.name != 'escapada_alojamiento' %}
+          <div>
+            <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
+              {{ field.label }}
+            </label>
+            {{ field|add_class:"w-full p-2 border border-gray-300 rounded" }}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="mt-4 flex justify-end space-x-3">
+      <a href="{% url 'habitacion_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+        Cancelar
+      </a>
+      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+        Guardar
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

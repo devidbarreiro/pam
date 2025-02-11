@@ -1,0 +1,31 @@
+<!-- templates/escapada/alojamiento_escapada.html -->
+{% extends 'base.html' %}
+
+{% block title %}Añadir Alojamientos - {{ escapada.nombre }}{% endblock %}
+
+{% block content %}
+  <div class="max-w-3xl mx-auto bg-white shadow rounded-lg p-6">
+    <h2 class="text-2xl font-bold mb-4">Añadir Alojamientos a la Escapada: {{ escapada.nombre }}</h2>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="space-y-4">
+        {% for alojamiento in alojamientos %}
+          <div class="flex items-center">
+            <input type="checkbox" name="alojamientos" value="{{ alojamiento.id }}" id="alojamiento_{{ alojamiento.id }}" class="mr-3">
+            <label for="alojamiento_{{ alojamiento.id }}" class="text-sm font-medium text-gray-700">{{ alojamiento.nombre }}</label>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="mt-6 flex justify-between">
+        <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+          Añadir Alojamientos
+        </button>
+        <a href="{% url 'escapada_detail' escapada.pk %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

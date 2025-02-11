@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}Detalle de Persona - Gestión de Escapadas{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white shadow rounded-lg p-6">
+  <h2 class="text-2xl font-bold mb-4">Detalle de Persona</h2>
+  <div class="mb-4 space-y-2">
+    <p><strong>Nombre:</strong> {{ persona.nombre }}</p>
+    <p><strong>DNI:</strong> {{ persona.dni }}</p>
+    <p><strong>Email:</strong> {{ persona.email }}</p>
+    {% if persona.telefono %}
+      <p><strong>Teléfono:</strong> {{ persona.telefono }}</p>
+    {% endif %}
+    {% if persona.alojamiento %}
+      <p><strong>Alojamiento:</strong> {{ persona.alojamiento.nombre }}</p>
+    {% endif %}
+    {% if persona.habitacion %}
+      <p><strong>Habitación:</strong> {{ persona.habitacion.numero }}</p>
+    {% endif %}
+  </div>
+  <div class="flex space-x-4">
+    <a href="{% url 'persona_update' persona.pk %}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Editar</a>
+    <a href="{% url 'persona_delete' persona.pk %}" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Eliminar</a>
+    <a href="{% url 'persona_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Volver a la Lista</a>
+  </div>
+</div>
+{% endblock %}

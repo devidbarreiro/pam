@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Detalle de Alojamiento - Gestión de Escapadas{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white shadow rounded-lg p-6">
+  <h2 class="text-2xl font-bold mb-4">Detalle de Alojamiento</h2>
+
+  <!-- Datos del Alojamiento -->
+  <div class="mb-4 space-y-2">
+    <p><strong>Nombre:</strong> {{ alojamiento.nombre }}</p>
+    <p><strong>Dirección:</strong> {{ alojamiento.direccion }}</p>
+    <p><strong>Teléfono:</strong> {{ alojamiento.telefono }}</p>
+    <p><strong>Email:</strong> {{ alojamiento.correo }}</p>
+    <p><strong>Número de Habitaciones:</strong> {{ alojamiento.num_habitaciones }}</p>
+    <p><strong>Tipo:</strong> {{ alojamiento.get_tipo_alojamiento_display }}</p>
+    {% if alojamiento.website %}
+      <p>
+        <strong>Website:</strong>
+        <a href="{{ alojamiento.website }}" class="text-blue-600 hover:underline">
+          {{ alojamiento.website }}
+        </a>
+      </p>
+    {% endif %}
+    {% if alojamiento.horario_checkin %}
+      <p><strong>Check-in:</strong> {{ alojamiento.horario_checkin }}</p>
+    {% endif %}
+    {% if alojamiento.horario_checkout %}
+      <p><strong>Check-out:</strong> {{ alojamiento.horario_checkout }}</p>
+    {% endif %}
+  </div>
+
+  <!-- Imagen del Alojamiento -->
+  {% if alojamiento.imagen %}
+    <div class="mb-4">
+      <img
+        src="{{ alojamiento.imagen.url }}"
+        alt="Imagen de {{ alojamiento.nombre }}"
+        class="w-full h-auto rounded shadow"
+      >
+    </div>
+  {% else %}
+    <div class="mb-4 text-gray-600 italic">
+      <p>No hay imagen disponible para este alojamiento.</p>
+    </div>
+  {% endif %}
+
+  <!-- Sección de Habitaciones -->
+  <div class="mt-6">
+    <h3 class="text-xl font-bold mb-2">Habitaciones de este Alojamiento</h3>
+
+    <!-- Verificamos si este Alojamiento tiene EscapadaAlojamiento asociado -->
+    {% if alojamiento.alojamientos_escapada.count == 0 %}
+      <p class="text-gray-600">
+        El alojamiento no está asociado a ninguna escapada. 
+        Por favor, asócialo antes de crear habitaciones.
+      </p>
+    {% else %}
+      <!-- Listar habitaciones para cada EscapadaAlojamiento -->
+      {% for ea in alojamiento.alojamientos_escapada.all %}
+        {% if ea.habitaciones.exists %}
+          <div class="my-4 p-4 rounded border border-gray-200 bg-gray-50">
+            <p class="font-semibold">
+              Escapada: {{ ea.escapada.nombre }} ({{ ea.escapada.lugar }})
+            </p>
+            <hr class="my-2">
+
+            <!-- Mostramos cada Habitacion -->
+            {% for hab in ea.habitaciones.all %}
+              <div class="p-2 mb-2 border border-gray-300 rounded">
+                <p><strong>Número:</strong> {{ hab.numero }}</p>
+                <p><strong>Capacidad:</strong> {{ hab.capacidad }}</p>
+                <p><strong>Tipo:</strong> {{ hab.get_tipo_display }}</p>
+                <p><strong>Estado:</strong> {{ hab.estado }}</p>
+                {% if hab.descripcion %}
+                  <p><strong>Descripción:</strong> {{ hab.descripcion }}</p>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-gray-600">
+            Este alojamiento está asociado a la Escapada "{{ ea.escapada }}",
+            pero no tiene habitaciones registradas.
+          </p>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
+    <!-- Botones para crear habitaciones -->
+    <div class="mt-6 flex flex-wrap gap-4">
+      <!-- Crear Habitación (individual) -->
+      <a href="{% url 'habitacion_create' %}?alojamiento={{ alojamiento.pk }}"
+         class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+      >
+        Crear Habitación
+      </a>
+
+      <!-- Crear Múltiples Habitaciones -->
+      <!-- Solo si hay exactamente 1 EscapadaAlojamiento: -->
+      {% if alojamiento.alojamientos_escapada.count == 1 %}
+        {% for ea in alojamiento.alojamientos_escapada.all %}
+          <a href="{% url 'habitacion_multiple_create' ea.pk %}"
+             class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Crear Múltiples Habitaciones
+          </a>
+        {% endfor %}
+      {% else %}
+        <!-- Si hay 0 o varias, mostramos mensaje -->
+        <p class="italic text-red-600">
+          No se puede crear múltiples habitaciones automáticamente, 
+          ya que este alojamiento está asociado a 0 o varias escapadas. 
+          Selecciona la escapada apropiada antes de crear habitaciones.
+        </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Botones de Acción (Editar/Eliminar/Volver) -->
+  <div class="flex space-x-4 mt-6">
+    <a href="{% url 'alojamiento_update' alojamiento.pk %}"
+       class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+    >
+      Editar
+    </a>
+    <a href="{% url 'alojamiento_delete' alojamiento.pk %}"
+       class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+    >
+      Eliminar
+    </a>
+    <a href="{% url 'alojamiento_list' %}"
+       class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+    >
+      Volver a la Lista
+    </a>
+  </div>
+</div>
+{% endblock %}
