@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<div class="min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white shadow-2xl rounded-lg p-8 max-w-4xl w-full">
+    <!-- Indicador de pasos -->
+    <div class="mb-8">
+      <div class="flex justify-between">
+        <!-- Paso 1: Seleccionar Archivo -->
+        <div class="flex items-center">
+          <div id="stepIndicator1" class="flex items-center justify-center h-10 w-10 rounded-full bg-blue-600 text-white font-bold">1</div>
+          <span class="ml-2 font-medium text-blue-600">Seleccionar Archivo</span>
+        </div>
+        <!-- Paso 2: Previsualizar CSV -->
+        <div class="flex items-center">
+          <div id="stepIndicator2" class="flex items-center justify-center h-10 w-10 rounded-full bg-gray-200 text-gray-600 font-bold">2</div>
+          <span class="ml-2 font-medium text-gray-600">Previsualizar CSV</span>
+        </div>
+        <!-- Paso 3: Mapeo de Datos -->
+        <div class="flex items-center">
+          <div id="stepIndicator3" class="flex items-center justify-center h-10 w-10 rounded-full bg-gray-200 text-gray-600 font-bold">3</div>
+          <span class="ml-2 font-medium text-gray-600">Mapeo de Datos</span>
+        </div>
+        <!-- Paso 4: Resumen e Importación -->
+        <div class="flex items-center">
+          <div id="stepIndicator4" class="flex items-center justify-center h-10 w-10 rounded-full bg-gray-200 text-gray-600 font-bold">4</div>
+          <span class="ml-2 font-medium text-gray-600">Resumen &amp; Importar</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formulario principal de importación -->
+    <form id="importForm" action="{% url 'importar_personas' %}" method="post" enctype="multipart/form-data" class="space-y-8">
+      {% csrf_token %}
+
+      <!-- Paso 1: Selección de Archivo CSV -->
+      <div id="step1" class="step-content">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">1. Seleccionar Archivo CSV</h2>
+        <div id="alertContainer"></div>
+        <div id="dropZone" class="border-dashed border-4 border-gray-300 rounded-lg p-6 text-center cursor-pointer">
+            <p class="text-gray-500 mb-2">Arrastra y suelta el archivo CSV aquí o haz clic para seleccionar</p>
+            <input type="file" id="csv_file" name="csv_file" accept=".csv" class="hidden">
+            <button type="button" id="browseButton" class="px-4 py-2 bg-blue-600 text-white rounded-lg">Seleccionar Archivo</button>
+            <div id="selectedFile" class="mt-2 text-sm text-gray-600"></div>
+        </div>
+        <div id="selectedFileDisplay" class="mt-4 hidden">
+          <p class="text-gray-700"><span id="selectedFileName"></span> (<span id="fileSize"></span>)</p>
+          <button type="button" id="removeFile" class="mt-2 px-3 py-1 bg-red-600 text-white rounded-lg">Eliminar Archivo</button>
+        </div>
+        <div class="mt-6">
+          <label for="escapada" class="block text-gray-700 font-medium mb-2">Escapada (opcional)</label>
+          <select name="escapada" id="escapada" class="w-full p-2 border border-gray-300 rounded-lg">
+            <option value="">-- Solo añadir a la base de datos (sin inscripción) --</option>
+            {% for e in escapadas %}
+              <option value="{{ e.id }}">{{ e.nombre }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mt-4 flex items-center">
+          <input type="checkbox" id="only_add_to_db" name="only_add_to_db" class="mr-2">
+          <label for="only_add_to_db" class="text-gray-700">Solo añadir a la base de datos</label>
+        </div>
+        <div class="mt-6 text-right">
+          <button type="button" id="btnAnalyze" class="px-6 py-2 bg-green-600 text-white rounded-lg">
+            <span class="button-text">Analizar CSV</span>
+            <span class="spinner hidden inline-block border-2 border-t-2 border-white rounded-full w-4 h-4"></span>
+          </button>
+        </div>
+      </div>
+
+    <!-- Paso 2: Previsualización del CSV -->
+        <div id="step2" class="step-content hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">2. Previsualización del CSV</h2>
+            
+            <div class="bg-blue-100 border-l-4 border-blue-500 text-blue-700 p-4 mb-6 rounded-lg shadow-md">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                <i class="fas fa-info-circle fa-2x"></i>
+                </div>
+                <div class="ml-4">
+                <p class="font-bold">Datos detectados</p>
+                <p>Se han encontrado <span id="columnCount" class="font-bold">0</span> columnas en el archivo CSV.</p>
+                </div>
+            </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-lg">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 table-auto">
+                <thead class="bg-gray-50" id="previewTableHead">
+                    <!-- Se genera dinámicamente -->
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="previewTableBody">
+                    <!-- Se genera dinámicamente -->
+                </tbody>
+                </table>
+            </div>
+            <div class="px-4 py-3 bg-gray-50 text-right">
+                <span class="text-sm text-gray-600" id="previewInfo">Mostrando las primeras <span id="previewRowCount">0</span> filas de <span id="totalRowCount">0</span></span>
+            </div>
+            </div>
+            
+            <div class="mt-8 flex justify-between items-center">
+            <button type="button" class="prev-step px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 flex items-center">
+                <i class="fas fa-chevron-left mr-2"></i> Atrás
+            </button>
+            <div>
+                <button type="button" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400 mr-2" id="btnViewMore">
+                Ver más filas
+                </button>
+                <button type="button" id="btnToMapping" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                Continuar al mapeo <i class="fas fa-chevron-right ml-2"></i>
+                </button>
+            </div>
+            </div>
+        </div>
+
+      <!-- Paso 3: Mapeo de Datos -->
+        <div id="step3" class="step-content hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">3. Mapeo de Datos</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Columna Izquierda: Lista de campos -->
+            <div class="md:col-span-1">
+                <h3 class="text-xl font-semibold text-gray-700 mb-4">Campos del Modelo Persona</h3>
+                <div id="fieldsContainer" class="space-y-4 max-h-96 overflow-y-auto pr-2">
+                {% for campo in campos_persona %}
+                    <div class="p-4 border border-gray-300 rounded-lg hover:shadow transition-shadow cursor-pointer field-item relative"
+                        data-field-id="{{ campo.id }}"
+                        data-required="{{ campo.requerido|yesno:'true,false' }}"
+                        {% if campo.inscripcion %}data-inscripcion="true"{% else %}data-inscripcion="false"{% endif %}>
+                    <!-- Botón de deseleccionar (inicialmente oculto) -->
+                    <button type="button" class="deselect-btn absolute top-2 right-2 text-red-500 hidden" onclick="deselectMapping('{{ campo.id }}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <div class="flex justify-between items-start">
+                        <div>
+                        <h4 class="text-lg font-medium text-gray-800">
+                            {{ campo.nombre }} {% if campo.requerido %}<span class="text-red-500">*</span>{% endif %}
+                        </h4>
+                        <p class="text-sm text-gray-500">{{ campo.descripcion }}</p>
+                        </div>
+                        <span class="field-status-indicator"></span>
+                    </div>
+                    <div class="mt-2">
+                        <span class="inline-block text-xs bg-gray-200 text-gray-700 rounded-full px-2 py-1">{{ campo.tipo }}</span>
+                    </div>
+                    </div>
+                {% endfor %}
+                </div>
+                <div class="mt-6">
+                <input type="text" id="searchField" class="w-full p-2 border border-gray-300 rounded-lg" placeholder="Buscar campo...">
+                <button type="button" id="clearSearch" class="mt-3 w-full py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">Limpiar búsqueda</button>
+                </div>
+            </div>
+  
+  
+      <!-- Columna Derecha: Interfaz de mapeo -->
+      <div class="md:col-span-2">
+        <h3 class="text-xl font-semibold text-gray-700 mb-4">Mapear columnas del CSV</h3>
+        <div id="mappingContainer" class="p-6 border border-gray-300 rounded-lg min-h-[300px] flex items-center justify-center relative">
+          <p class="text-gray-500">Selecciona un campo a la izquierda para comenzar el mapeo.</p>
+        </div>
+        <div class="mt-6">
+          <div class="w-full bg-gray-200 rounded-full h-3">
+            <div id="mappingProgress" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <p class="mt-3 text-gray-600">Campos mapeados: <span id="mappedCount">0</span> / <span id="totalFields">{{ campos_persona|length }}</span></p>
+        </div>
+        <div id="validationErrors" class="mt-6 p-4 bg-red-100 text-red-700 rounded-lg hidden">
+          <h4 class="font-semibold mb-2">Errores en el mapeo</h4>
+          <ul id="errorsList" class="list-disc pl-5"></ul>
+        </div>
+      </div>
+    </div>
+    <div class="mt-8 flex justify-between">
+      <button type="button" class="prev-step px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors">Atrás</button>
+      <button type="button" id="btnValidateMapping" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">Validar mapeo y continuar</button>
+    </div>
+  </div>
+  
+  
+
+      <!-- Paso 4: Resumen e Importación -->
+      <div id="step4" class="step-content hidden">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">4. Resumen e Importación</h2>
+        <div class="p-6 bg-gray-50 rounded-lg">
+          <h3 class="text-xl font-semibold mb-3">Resumen</h3>
+          <p class="text-gray-700"><strong>Archivo seleccionado:</strong> <span id="summaryFileName"></span></p>
+          <p class="text-gray-700 mt-2"><strong>Escapada seleccionada:</strong> <span id="summaryEscapada"></span></p>
+          <p class="text-gray-700 mt-2"><strong>Mapeo:</strong> <span id="summaryMappedFields"></span></p>
+          <p class="text-gray-700 mt-2"><strong>Modo de importación:</strong> <span id="summaryImportMode"></span></p>
+          <div class="mt-4">
+            <h4 class="font-semibold mb-2">Detalle del mapeo:</h4>
+            <div class="overflow-x-auto">
+              <table class="min-w-full border border-gray-300">
+                <thead class="bg-gray-100">
+                  <tr>
+                    <th class="px-4 py-2">Campo</th>
+                    <th class="px-4 py-2">Columna CSV</th>
+                  </tr>
+                </thead>
+                <tbody id="summaryMappingTable">
+                  <!-- Se genera dinámicamente -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <!-- Enviar la configuración del mapeo como JSON -->
+        <input type="hidden" name="mapping" id="mapping">
+        <div class="mt-6 flex justify-between">
+          <button type="button" class="prev-step px-4 py-2 bg-gray-400 text-white rounded-lg">Atrás</button>
+          <button type="button" id="btnImport" class="px-4 py-2 bg-blue-600 text-white rounded-lg">
+            <span class="button-text"><i class="fas fa-upload mr-2"></i> Iniciar importación</span>
+            <svg class="animate-spin hidden inline-block w-5 h-5 text-white" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </form>
+  </div>
+</div>
+<script src="{% static 'js/csv-import.js' %}"></script>
+{% endblock %}

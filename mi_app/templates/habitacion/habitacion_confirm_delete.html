@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirmar Eliminación de Habitación{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md mt-10">
+  <h1 class="text-2xl font-bold text-gray-800 mb-6">Confirmar Eliminación</h1>
+  
+  <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+    <div class="flex">
+      <div class="flex-shrink-0">
+        <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+      </div>
+      <div class="ml-3">
+        <p class="text-sm text-yellow-700">
+          ¿Estás seguro de que deseas eliminar la habitación 
+          <strong>{{ object.numero|default:object.numero_ficticio }}</strong> 
+          del alojamiento <strong>{{ object.escapada_alojamiento.alojamiento.nombre }}</strong>?
+        </p>
+        {% if object.reservahabitacion_set.exists %}
+          <p class="text-sm text-red-600 mt-2">
+            <strong>¡Atención!</strong> Esta habitación tiene {{ object.reservahabitacion_set.count }} 
+            ocupante(s) asignado(s). Si continúas, deberás reasignarlos manualmente.
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  
+  <form method="post">
+    {% csrf_token %}
+    <div class="flex justify-end space-x-4">
+      <a href="{% url 'escapada_detail' object.escapada_alojamiento.escapada.id %}#habitaciones" 
+         class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors">
+        Cancelar
+      </a>
+      <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
+        Confirmar Eliminación
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

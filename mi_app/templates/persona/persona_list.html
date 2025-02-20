@@ -1,42 +1,851 @@
 {% extends 'base.html' %}
-{% block title %}Lista de Personas - Gestión de Escapadas{% endblock %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Gestión de Personas{% endblock %}
+
+{% block extrahead %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  .badge-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-weight: 500;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+  .badge-pill i {
+    margin-right: 0.25rem;
+  }
+  .badge-pill.pagado {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: rgb(6, 95, 70);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+  .badge-pill.pendiente {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: rgb(146, 64, 14);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+  }
+  .avatar-initials {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    background-image: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    border-radius: 9999px;
+  }
+  .fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .pill-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    line-height: 1;
+  }
+  /* Estilos para selección múltiple */
+  .row-selected {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+  .selection-actions {
+    transition: all 0.3s ease;
+    transform: translateY(20px);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .selection-actions.active {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  /* Estilos para modales */
+  .modal-step {
+    display: none;
+  }
+  .modal-step.active {
+    display: block;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-5xl mx-auto bg-white shadow rounded-lg p-6">
-  <h2 class="text-2xl font-bold mb-4">Lista de Personas</h2>
-  <table class="min-w-full divide-y divide-gray-200">
-    <thead>
-      <tr>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DNI</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-        <th class="px-6 py-3"></th>
-      </tr>
-    </thead>
-    <tbody class="bg-white divide-y divide-gray-200">
-      {% for persona in personas %}
-      <tr>
-        <td class="px-6 py-4 whitespace-nowrap">{{ persona.nombre }}</td>
-        <td class="px-6 py-4 whitespace-nowrap">{{ persona.dni }}</td>
-        <td class="px-6 py-4 whitespace-nowrap">{{ persona.email }}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-          <a href="{% url 'persona_detail' persona.pk %}" class="text-blue-600 hover:text-blue-900">Ver</a>
-          <span class="mx-2">|</span>
-          <a href="{% url 'persona_update' persona.pk %}" class="text-indigo-600 hover:text-indigo-900">Editar</a>
-          <span class="mx-2">|</span>
-          <a href="{% url 'persona_delete' persona.pk %}" class="text-red-600 hover:text-red-900">Eliminar</a>
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="4" class="px-6 py-4 text-center">No hay personas registradas.</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  <div class="mt-4">
-    <a href="{% url 'persona_create' %}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-      Crear Nueva Persona
-    </a>
+<div class="max-w-7xl mx-auto">
+  <!-- Encabezado con stats integrados -->
+  <div class="bg-white shadow-lg rounded-xl p-6 mb-6">
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center">
+      <div class="mb-4 lg:mb-0">
+        <h1 class="text-3xl font-bold text-gray-800 flex items-center">
+          <i class="fas fa-users mr-3 text-blue-600"></i>Gestión de Personas
+        </h1>
+        <p class="text-gray-600 mt-2 max-w-2xl">
+          Administra registros de usuarios, inscripciones y asignaciones de alojamiento para tus escapadas.
+        </p>
+      </div>
+      
+      <!-- Stats Pills -->
+      <div class="flex flex-wrap gap-3">
+        <div class="flex items-center bg-blue-50 px-4 py-2 rounded-lg">
+          <div class="mr-3 bg-blue-100 p-2 rounded-md">
+            <i class="fas fa-users text-blue-700"></i>
+          </div>
+          <div>
+            <span class="block text-2xl font-bold text-blue-700">{{ total_personas }}</span>
+            <span class="text-xs uppercase text-blue-700/70 font-medium">Total Personas</span>
+          </div>
+        </div>
+        
+        <div class="flex items-center bg-green-50 px-4 py-2 rounded-lg">
+          <div class="mr-3 bg-green-100 p-2 rounded-md">
+            <i class="fas fa-check-circle text-green-700"></i>
+          </div>
+          <div>
+            <span class="block text-2xl font-bold text-green-700">{{ personas_pagadas }}</span>
+            <span class="text-xs uppercase text-green-700/70 font-medium">Pagos Completados</span>
+          </div>
+        </div>
+        
+        <div class="flex items-center bg-amber-50 px-4 py-2 rounded-lg">
+          <div class="mr-3 bg-amber-100 p-2 rounded-md">
+            <i class="fas fa-clock text-amber-700"></i>
+          </div>
+          <div>
+            <span class="block text-2xl font-bold text-amber-700">{{ personas_pendientes }}</span>
+            <span class="text-xs uppercase text-amber-700/70 font-medium">Pagos Pendientes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel de Acciones y Filtros -->
+  <div class="bg-white shadow-md rounded-xl overflow-hidden mb-6">
+    <div class="p-5 border-b border-gray-100">
+      <h2 class="text-lg font-semibold text-gray-800">Búsqueda y Filtros</h2>
+    </div>
+    
+    <div class="p-5">
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <!-- Buscador principal -->
+        <div class="lg:col-span-2 relative">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <i class="fas fa-search text-gray-400"></i>
+          </div>
+          <input type="text" id="searchInput" placeholder="Buscar por nombre, apellidos o DNI..."
+                 class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+        </div>
+        
+        <!-- Filtro por escapada -->
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <i class="fas fa-hiking text-gray-400"></i>
+          </div>
+          <select id="escapadaFilter" class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition appearance-none">
+            <option value="">Todas las Escapadas</option>
+            {% for escapada in escapadas %}
+              <option value="{{ escapada.id }}">{{ escapada.nombre }}</option>
+            {% endfor %}
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+            <i class="fas fa-chevron-down text-xs"></i>
+          </div>
+        </div>
+        
+        <!-- Filtro por estado de pago -->
+        <div class="relative">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <i class="fas fa-money-bill-wave text-gray-400"></i>
+          </div>
+          <select id="pagoFilter" class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition appearance-none">
+            <option value="">Estado de Pago</option>
+            <option value="pagado">Pagado</option>
+            <option value="pendiente">Pendiente</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+            <i class="fas fa-chevron-down text-xs"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Acciones y Exportación -->
+  <div class="flex justify-between items-center mb-6">
+    <div class="text-sm text-gray-500 results-count">
+      <span class="font-medium">{{ total_personas }}</span> personas en total
+    </div>
+    <div class="flex gap-3">
+      <!-- Botón de inscribir múltiples personas (inicialmente oculto) -->
+      <button id="inscribirMultiplesBtn" type="button" class="selection-actions inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition shadow">
+        <i class="fas fa-user-plus mr-2"></i>Inscribir Seleccionados
+      </button>
+      <button type="button" data-action="exportar" class="inline-flex items-center px-4 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition shadow-sm">
+        <i class="fas fa-file-export mr-2"></i>Exportar a CSV
+      </button>
+      <a href="{% url 'importar_personas' %}" class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition shadow">
+        <i class="fas fa-file-import mr-2"></i>Importar CSV
+      </a>
+      <a href="{% url 'persona_create' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition shadow">
+        <i class="fas fa-user-plus mr-2"></i>Nueva Persona
+      </a>
+    </div>
+  </div>
+
+  <!-- Lista de Personas -->
+  <div class="bg-white shadow-lg rounded-xl overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full" id="personasTable">
+        <thead>
+          <tr class="bg-gray-50 text-left">
+            <!-- Nueva columna para checkbox de selección -->
+            <th class="px-3 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
+              <input type="checkbox" id="selectAllCheckbox" class="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500">
+            </th>
+            <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
+              <div class="flex items-center">
+                <i class="fas fa-user mr-2 text-gray-400"></i>Persona
+              </div>
+            </th>
+            <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
+              <div class="flex items-center">
+                <i class="fas fa-address-book mr-2 text-gray-400"></i>Contacto
+              </div>
+            </th>
+            <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
+              <div class="flex items-center">
+                <i class="fas fa-clipboard-list mr-2 text-gray-400"></i>Inscripciones
+              </div>
+            </th>
+            <th class="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
+              <div class="flex items-center">
+                <i class="fas fa-hotel mr-2 text-gray-400"></i>Alojamiento
+              </div>
+            </th>
+            <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for persona in personas %}
+          <tr class="hover:bg-blue-50/40 transition duration-150"
+              data-nombre="{{ persona.nombre|lower }} {% if persona.apellidos %}{{ persona.apellidos|lower }}{% endif %}"
+              data-dni="{{ persona.dni }}"
+              data-persona-id="{{ persona.pk }}"
+              data-persona-nombre="{{ persona.nombre }} {% if persona.apellidos %}{{ persona.apellidos }}{% endif %}"
+              data-escapadas="{% for inscripcion in persona.inscripciones.all %}{{ inscripcion.escapada_id }}{% if not forloop.last %},{% endif %}{% endfor %}"
+              data-estado-pago="{% if persona.inscripciones.all %}{{ persona.inscripciones.first.ha_pagado|yesno:'pagado,pendiente' }}{% endif %}">
+            <!-- Checkbox para selección múltiple -->
+            <td class="px-3 py-4 text-center">
+              <input type="checkbox" class="persona-checkbox form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500" data-persona-id="{{ persona.pk }}">
+            </td>
+            <!-- Columna Persona -->
+            <td class="px-6 py-4">
+              <div class="flex items-center">
+                <div class="flex-shrink-0 h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold mr-4 shadow-sm">
+                  {{ persona.nombre|first|upper }}{% if persona.apellidos %}{{ persona.apellidos|first|upper }}{% endif %}
+                </div>
+                <div>
+                  <a href="{% url 'persona_detail' persona.pk %}" class="text-lg font-medium text-gray-900 hover:text-blue-600 transition">
+                    {{ persona.nombre }} {% if persona.apellidos %}{{ persona.apellidos }}{% endif %}
+                  </a>
+                  <div class="flex items-center mt-1">
+                    <span class="text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{{ persona.dni }}</span>
+                    {% if persona.es_pringado %}
+                    <span class="ml-2 inline-flex items-center bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded-full">
+                      <i class="fas fa-crown text-xs mr-1"></i>Pringado {% if persona.anio_pringado %}{{ persona.anio_pringado }}{% endif %}
+                    </span>
+                    {% endif %}
+                    {% if persona.es_anfitrion %}
+                    <span class="ml-2 inline-flex items-center bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full">
+                      <i class="fas fa-star text-xs mr-1"></i>Anfitrión
+                    </span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </td>
+            
+            <!-- Columna Contacto -->
+            <td class="px-6 py-4">
+              {% if persona.correo %}
+              <div class="flex items-center text-sm text-gray-900 mb-1">
+                <i class="fas fa-envelope text-gray-400 mr-2"></i>
+                <a href="mailto:{{ persona.correo }}" class="hover:text-blue-600 transition">{{ persona.correo }}</a>
+              </div>
+              {% endif %}
+              {% if persona.telefono %}
+              <div class="flex items-center text-sm text-gray-900">
+                <i class="fas fa-phone text-gray-400 mr-2"></i>
+                <a href="tel:{{ persona.telefono }}" class="hover:text-blue-600 transition">{{ persona.telefono }}</a>
+              </div>
+              {% endif %}
+              {% if not persona.correo and not persona.telefono %}
+              <div class="text-sm text-gray-500 italic">
+                Sin datos de contacto
+              </div>
+              {% endif %}
+            </td>
+            
+            <!-- Columna Inscripciones -->
+            <td class="px-6 py-4">
+              {% if persona.inscripciones.all %}
+              <ul class="space-y-2">
+                {% for inscripcion in persona.inscripciones.all %}
+                <li class="flex items-center">
+                  <i class="fas fa-mountain text-gray-400 mr-2"></i>
+                  <div class="flex flex-col">
+                    <div class="flex items-center">
+                      <span class="text-sm font-medium text-gray-900">{{ inscripcion.escapada.nombre }}</span>
+                      <span class="badge-pill {% if inscripcion.ha_pagado %}pagado{% else %}pendiente{% endif %} ml-2">
+                        {% if inscripcion.ha_pagado %}
+                        <i class="fas fa-check-circle"></i>Pagado
+                        {% else %}
+                        <i class="fas fa-clock"></i>Pendiente {% if inscripcion.importe_pendiente > 0 %}({{ inscripcion.importe_pendiente }}€){% endif %}
+                        {% endif %}
+                      </span>
+                      {% if inscripcion.es_anfitrion %}
+                      <span class="ml-2 bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full">
+                        <i class="fas fa-star text-xs mr-1"></i>Anfitrión
+                      </span>
+                      {% endif %}
+                    </div>
+                    {% if inscripcion.tipo_habitacion_preferida %}
+                    <div class="text-xs text-gray-500 mt-1">
+                      <i class="fas fa-bed mr-1"></i>Prefiere: {{ inscripcion.tipo_habitacion_preferida }}
+                    </div>
+                    {% endif %}
+                  </div>
+                </li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <div class="flex items-center text-sm text-gray-500">
+                <i class="fas fa-info-circle mr-2"></i>Sin inscripciones
+              </div>
+              {% endif %}
+            </td>
+            
+            <!-- Columna Alojamiento -->
+            <td class="px-6 py-4">
+              {% with reservas=persona.habitaciones_reservadas.all %}
+                {% if reservas %}
+                  {% for reserva in reservas %}
+                  <div class="flex items-start mb-2">
+                    <i class="fas fa-bed text-gray-400 mt-0.5 mr-2"></i>
+                    <div>
+                      <div class="text-sm font-medium text-gray-900">
+                        {{ reserva.escapada_alojamiento.alojamiento.nombre }}
+                      </div>
+                      <div class="flex items-center mt-1">
+                        <span class="pill-badge bg-blue-100 text-blue-800 mr-1">
+                          Hab. {{ reserva.numero }}{% if reserva.numero_ficticio %} ({{ reserva.numero_ficticio }}){% endif %}
+                        </span>
+                        <span class="text-xs text-gray-500">
+                          {{ reserva.get_tipo_display }} • {{ reserva.capacidad }} plazas
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  {% endfor %}
+                {% else %}
+                <div class="flex items-center text-sm text-gray-500">
+                  <i class="fas fa-exclamation-circle mr-2 text-amber-500"></i>Sin habitación asignada
+                  {% if persona.tipo_alojamiento_deseado %}
+                  <span class="ml-1 text-xs text-gray-400">(Prefiere: {{ persona.tipo_alojamiento_deseado }})</span>
+                  {% endif %}
+                </div>
+                {% endif %}
+              {% endwith %}
+            </td>
+            
+            <!-- Columna Acciones -->
+            <td class="px-6 py-4 text-right">
+              <div class="flex justify-end space-x-1">
+                <a href="{% url 'persona_detail' persona.pk %}" 
+                   class="text-blue-600 hover:bg-blue-100 p-2 rounded transition" 
+                   title="Ver detalles">
+                  <i class="fas fa-eye"></i>
+                </a>
+                <a href="{% url 'persona_update' persona.pk %}" 
+                   class="text-emerald-600 hover:bg-emerald-100 p-2 rounded transition" 
+                   title="Editar">
+                  <i class="fas fa-edit"></i>
+                </a>
+                <!-- Nuevo botón para inscribir persona individual -->
+                <button type="button"
+                        onclick="abrirModalInscripcion('{{ persona.pk }}', '{{ persona.nombre }} {% if persona.apellidos %}{{ persona.apellidos }}{% endif %}')"
+                        class="text-purple-600 hover:bg-purple-100 p-2 rounded transition"
+                        title="Inscribir en escapada">
+                  <i class="fas fa-hiking"></i>
+                </button>
+                <button onclick="confirmDelete('{% url 'persona_delete' persona.pk %}')" 
+                        class="text-red-600 hover:bg-red-100 p-2 rounded transition" 
+                        title="Eliminar">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="px-6 py-16 text-center">
+              <div class="flex flex-col items-center justify-center">
+                <div class="bg-blue-50 p-4 rounded-full mb-4">
+                  <svg class="w-16 h-16 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                </div>
+                <h3 class="text-xl font-medium text-gray-700 mb-2">No hay personas registradas</h3>
+                <p class="text-gray-500 max-w-md mb-6">Comienza agregando una nueva persona o importando datos desde un archivo CSV</p>
+                <div class="flex space-x-4">
+                  <a href="{% url 'importar_personas' %}" 
+                     class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition shadow-sm">
+                    <i class="fas fa-file-import mr-2"></i>Importar CSV
+                  </a>
+                  <a href="{% url 'persona_create' %}" 
+                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm">
+                    <i class="fas fa-user-plus mr-2"></i>Agregar Primera Persona
+                  </a>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Paginación mejorada -->
+  {% if is_paginated %}
+  <div class="mt-6 bg-white rounded-xl shadow-md px-6 py-4 flex items-center justify-between">
+    <div class="flex-1 flex justify-between sm:hidden">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
+        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+        <i class="fas fa-chevron-left mr-2"></i>Anterior
+      </a>
+      {% endif %}
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
+        class="ml-3 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+        Siguiente<i class="fas fa-chevron-right ml-2"></i>
+      </a>
+      {% endif %}
+    </div>
+    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+      <div>
+        <p class="text-sm text-gray-700">
+          Mostrando 
+          <span class="font-medium">{{ page_obj.start_index }}</span>
+          a 
+          <span class="font-medium">{{ page_obj.end_index }}</span>
+          de 
+          <span class="font-medium">{{ paginator.count }}</span>
+          personas
+        </p>
+      </div>
+      <div>
+        <nav class="relative z-0 inline-flex rounded-md shadow-sm" aria-label="Pagination">
+          {% if page_obj.has_previous %}
+          <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
+            class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" title="Primera página">
+            <span class="sr-only">Primera página</span>
+            <i class="fas fa-angle-double-left"></i>
+          </a>
+          <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
+            class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" title="Página anterior">
+            <span class="sr-only">Anterior</span>
+            <i class="fas fa-angle-left"></i>
+          </a>
+          {% endif %}
+          
+          {% for i in page_range %}
+            {% if i == '...' %}
+            <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+              ...
+            </span>
+            {% elif i == page_obj.number %}
+            <span aria-current="page" 
+                  class="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-medium text-blue-600">
+              {{ i }}
+            </span>
+            {% else %}
+            <a href="?page={{ i }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
+              class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+              {{ i }}
+            </a>
+            {% endif %}
+          {% endfor %}
+          
+          {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
+            class="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" title="Página siguiente">
+            <span class="sr-only">Siguiente</span>
+            <i class="fas fa-angle-right"></i>
+          </a>
+          <a href="?page={{ paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" 
+            class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" title="Última página">
+            <span class="sr-only">Última página</span>
+            <i class="fas fa-angle-double-right"></i>
+          </a>
+          {% endif %}
+        </nav>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+<!-- Modal de Confirmación de Eliminación Mejorado-->
+<div id="deleteModal" class="fixed z-50 inset-0 overflow-y-auto hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <!-- Background overlay -->
+    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+    
+    <!-- Modal positioning -->
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+    
+    <!-- Modal content -->
+    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+      <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div class="sm:flex sm:items-start">
+          <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+            <i class="fas fa-exclamation-triangle text-red-600"></i>
+          </div>
+          <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+              Eliminar Persona
+            </h3>
+            <div class="mt-2">
+              <p class="text-sm text-gray-500" id="modal-description">
+                ¿Estás seguro que deseas eliminar esta persona? Esta acción eliminará también todas sus inscripciones y asignaciones de habitación. Esta operación no se puede deshacer.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <form id="deleteForm" method="POST">
+          {% csrf_token %}
+          <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm transition">
+            <i class="fas fa-trash mr-2"></i>Eliminar Definitivamente
+          </button>
+        </form>
+        <button type="button" onclick="closeDeleteModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition">
+          Cancelar
+        </button>
+      </div>
+    </div>
   </div>
 </div>
+
+<!-- Modal de Inscripción a Escapadas -->
+<div id="inscripcionModal" class="fixed z-50 inset-0 overflow-y-auto hidden" aria-labelledby="inscripcion-modal-title" role="dialog" aria-modal="true">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <!-- Background overlay -->
+    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+    
+    <!-- Modal positioning -->
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+    
+    <!-- Modal content -->
+    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full">
+      <!-- Paso 1: Selección de Escapadas -->
+      <div id="paso1" class="modal-step active">
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6">
+          <div class="sm:flex sm:items-start">
+            <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+              <i class="fas fa-hiking text-blue-600"></i>
+            </div>
+            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+              <h3 class="text-lg leading-6 font-medium text-gray-900" id="inscripcion-modal-title">
+                Inscribir en Escapada
+              </h3>
+              <div class="mt-2">
+                <p class="text-sm text-gray-500 mb-4" id="inscripcion-personas-seleccionadas">
+                  Selecciona las escapadas en las que deseas inscribir a <strong id="nombresPersonas"></strong>
+                </p>
+              
+                <div class="mt-4">
+                  <label for="escapadas-seleccion" class="block text-sm font-medium text-gray-700 mb-2">Escapadas Disponibles:</label>
+                  <div class="space-y-2 max-h-60 overflow-y-auto p-3 border border-gray-200 rounded-md bg-gray-50" id="escapadas-container">
+                    {% for escapada in escapadas %}
+                      {% if escapada.estado != 'cerrada' %}
+                      <div class="flex items-center">
+                        <input type="checkbox" id="escapada-{{ escapada.id }}" name="escapadas" value="{{ escapada.id }}" 
+                              class="escapada-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <label for="escapada-{{ escapada.id }}" class="ml-2 block text-sm text-gray-900">
+                          {{ escapada.nombre }}
+                          <span class="text-xs text-gray-500 ml-1">
+                            ({{ escapada.fecha_ini|date:"d/m/Y" }} - {{ escapada.fecha_fin|date:"d/m/Y" }})
+                          </span>
+                          <span class="ml-2 inline-block px-2 py-0.5 text-xs rounded-full
+                                {% if escapada.estado == 'abierta' %}bg-green-100 text-green-800
+                                {% elif escapada.estado == 'cerrada' %}bg-red-100 text-red-800
+                                {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                            {{ escapada.estado|capfirst }}
+                          </span>
+                        </label>
+                      </div>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+
+                  <div class="mt-4">
+                    <label for="tipo-habitacion" class="block text-sm font-medium text-gray-700 mb-2">Tipo de Habitación Preferida (opcional):</label>
+                    <select id="tipo-habitacion" name="tipo_habitacion" class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                      <option value="">Sin preferencia</option>
+                      <option value="individual">Individual</option>
+                      <option value="doble">Doble</option>
+                      <option value="triple">Triple</option>
+                      <option value="cuadruple">Cuádruple</option>
+                      <option value="familiar">Familiar</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <button type="button" id="btnContinuarConfirmacion" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm">
+            Continuar
+          </button>
+          <button type="button" onclick="cerrarModalInscripcion()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+            Cancelar
+          </button>
+        </div>
+      </div>
+      
+      <!-- Paso 2: Confirmación -->
+      <div id="paso2" class="modal-step">
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6">
+          <div class="sm:flex sm:items-start">
+            <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 sm:mx-0 sm:h-10 sm:w-10">
+              <i class="fas fa-check-circle text-yellow-600"></i>
+            </div>
+            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+              <h3 class="text-lg leading-6 font-medium text-gray-900">
+                Confirmar Inscripción
+              </h3>
+              <div class="mt-2">
+                <p class="text-sm text-gray-500">
+                  ¿Estás seguro que deseas inscribir a las siguientes personas:
+                </p>
+                <ul id="lista-personas-confirmacion" class="mt-2 text-sm text-gray-600 bg-blue-50 p-2 rounded-md">
+                  <!-- Se llenará dinámicamente -->
+                </ul>
+                
+                <p class="text-sm text-gray-500 mt-3">
+                  En las siguientes escapadas:
+                </p>
+                <ul id="lista-escapadas-confirmacion" class="mt-2 text-sm text-gray-600 bg-green-50 p-2 rounded-md">
+                  <!-- Se llenará dinámicamente -->
+                </ul>
+                
+                <div id="preferencia-habitacion-confirmacion" class="mt-3 text-sm bg-gray-50 p-2 rounded-md">
+                  <!-- Se llenará dinámicamente -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <form id="inscripcionForm" method="POST" action="{% url 'inscribir_personas' %}">
+            {% csrf_token %}
+            <input type="hidden" name="personas_ids" id="personas_ids">
+            <input type="hidden" name="escapadas_ids" id="escapadas_ids">
+            <input type="hidden" name="tipo_habitacion" id="tipo_habitacion_hidden">
+            <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm">
+              <i class="fas fa-check mr-2"></i>Confirmar Inscripción
+            </button>
+          </form>
+          <button type="button" id="btnVolverSeleccion" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+            Volver
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/personas-list.js' %}"></script>
+<script>
+  // Variables globales para mantener el estado
+  let personasSeleccionadas = [];
+  
+  // Control de selección múltiple de personas
+  document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const personaCheckboxes = document.querySelectorAll('.persona-checkbox');
+    const inscribirMultiplesBtn = document.getElementById('inscribirMultiplesBtn');
+    
+    // Función para actualizar estado de selección
+    function actualizarSeleccion() {
+      personasSeleccionadas = [];
+      let haySeleccionados = false;
+      
+      personaCheckboxes.forEach(checkbox => {
+        const tr = checkbox.closest('tr');
+        if (checkbox.checked) {
+          haySeleccionados = true;
+          tr.classList.add('row-selected');
+          personasSeleccionadas.push({
+            id: checkbox.dataset.personaId,
+            nombre: tr.dataset.personaNombre
+          });
+        } else {
+          tr.classList.remove('row-selected');
+        }
+      });
+      
+      // Mostrar/ocultar botón de acción múltiple
+      if (haySeleccionados) {
+        inscribirMultiplesBtn.classList.add('active');
+      } else {
+        inscribirMultiplesBtn.classList.remove('active');
+      }
+    }
+    
+    // Event listeners
+    selectAllCheckbox.addEventListener('change', function() {
+      personaCheckboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+      });
+      actualizarSeleccion();
+    });
+    
+    personaCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', function() {
+        actualizarSeleccion();
+        
+        // Actualizar estado de "Seleccionar todos"
+        const todosSeleccionados = Array.from(personaCheckboxes).every(cb => cb.checked);
+        const algunoSeleccionado = Array.from(personaCheckboxes).some(cb => cb.checked);
+        
+        selectAllCheckbox.checked = todosSeleccionados;
+        selectAllCheckbox.indeterminate = algunoSeleccionado && !todosSeleccionados;
+      });
+    });
+    
+    // Botón para inscribir múltiples personas
+    inscribirMultiplesBtn.addEventListener('click', function() {
+      abrirModalInscripcionMultiple();
+    });
+    
+    // Cambio entre pasos del modal
+    document.getElementById('btnContinuarConfirmacion').addEventListener('click', function() {
+      mostrarPasoConfirmacion();
+    });
+    
+    document.getElementById('btnVolverSeleccion').addEventListener('click', function() {
+      document.getElementById('paso1').classList.add('active');
+      document.getElementById('paso2').classList.remove('active');
+    });
+  });
+  
+  // Funciones para el modal de inscripción
+  function abrirModalInscripcion(personaId, personaNombre) {
+    personasSeleccionadas = [{id: personaId, nombre: personaNombre}];
+    document.getElementById('nombresPersonas').textContent = personaNombre;
+    document.getElementById('inscripcionModal').classList.remove('hidden');
+    document.getElementById('paso1').classList.add('active');
+    document.getElementById('paso2').classList.remove('active');
+    
+    // Limpiar selecciones previas
+    document.querySelectorAll('.escapada-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('tipo-habitacion').value = '';
+  }
+  
+  function abrirModalInscripcionMultiple() {
+    const nombres = personasSeleccionadas.map(p => p.nombre).join(', ');
+    document.getElementById('nombresPersonas').textContent = nombres;
+    document.getElementById('inscripcionModal').classList.remove('hidden');
+    document.getElementById('paso1').classList.add('active');
+    document.getElementById('paso2').classList.remove('active');
+    
+    // Limpiar selecciones previas
+    document.querySelectorAll('.escapada-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('tipo-habitacion').value = '';
+  }
+  
+  function cerrarModalInscripcion() {
+    document.getElementById('inscripcionModal').classList.add('hidden');
+  }
+  
+  function mostrarPasoConfirmacion() {
+    // Verificar que al menos una escapada esté seleccionada
+    const escapadasSeleccionadas = Array.from(document.querySelectorAll('.escapada-checkbox:checked'));
+    if (escapadasSeleccionadas.length === 0) {
+      alert('Debes seleccionar al menos una escapada');
+      return;
+    }
+    
+    // Mostrar resumen de personas
+    const listaPersonas = document.getElementById('lista-personas-confirmacion');
+    listaPersonas.innerHTML = '';
+    personasSeleccionadas.forEach(persona => {
+      const li = document.createElement('li');
+      li.className = 'py-1';
+      li.innerHTML = `<i class="fas fa-user text-blue-600 mr-2"></i>${persona.nombre}`;
+      listaPersonas.appendChild(li);
+    });
+    
+    // Mostrar resumen de escapadas
+    const listaEscapadas = document.getElementById('lista-escapadas-confirmacion');
+    listaEscapadas.innerHTML = '';
+    const escapadasIds = [];
+    escapadasSeleccionadas.forEach(checkbox => {
+      const label = checkbox.nextElementSibling.textContent.trim();
+      const li = document.createElement('li');
+      li.className = 'py-1';
+      li.innerHTML = `<i class="fas fa-mountain text-green-600 mr-2"></i>${label}`;
+      listaEscapadas.appendChild(li);
+      escapadasIds.push(checkbox.value);
+    });
+    
+    // Mostrar preferencia de habitación
+    const tipoHabitacion = document.getElementById('tipo-habitacion').value;
+    const preferenciaDiv = document.getElementById('preferencia-habitacion-confirmacion');
+    if (tipoHabitacion) {
+      preferenciaDiv.innerHTML = `<i class="fas fa-bed text-gray-600 mr-2"></i>Preferencia de habitación: <strong>${tipoHabitacion}</strong>`;
+    } else {
+      preferenciaDiv.innerHTML = `<i class="fas fa-bed text-gray-600 mr-2"></i>Sin preferencia de habitación específica`;
+    }
+    
+    // Preparar datos para el formulario
+    document.getElementById('personas_ids').value = personasSeleccionadas.map(p => p.id).join(',');
+    document.getElementById('escapadas_ids').value = escapadasIds.join(',');
+    document.getElementById('tipo_habitacion_hidden').value = tipoHabitacion;
+    
+    // Cambiar al paso de confirmación
+    document.getElementById('paso1').classList.remove('active');
+    document.getElementById('paso2').classList.add('active');
+  }
+  
+  // Función para manejar eliminación (existente)
+  function confirmDelete(url) {
+    const deleteModal = document.getElementById('deleteModal');
+    const deleteForm = document.getElementById('deleteForm');
+    
+    deleteModal.classList.remove('hidden');
+    deleteForm.action = url;
+  }
+  
+  function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.add('hidden');
+  }
+</script>
 {% endblock %}

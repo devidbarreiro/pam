@@ -1,19 +1,52 @@
 {% extends 'base.html' %}
 {% load widget_tweaks %}
 
+{% block title %}Crear Habitaciones{% endblock %}
+
 {% block content %}
-<div class="max-w-3xl mx-auto bg-white shadow rounded p-6">
-  <h2 class="text-2xl font-bold mb-4">
-    Crear Habitación para Alojamiento: {{ alojamiento.nombre }}
-  </h2>
+<main class="max-w-3xl mx-auto bg-white shadow rounded p-8 space-y-6">
+  <header>
+    <h2 class="text-2xl font-bold mb-4">Crear Habitaciones</h2>
+    <p class="text-sm text-gray-600 mb-4">
+      <strong>Escapada:</strong> {{ ea.escapada.nombre }}<br>
+      <strong>Alojamiento:</strong> {{ ea.alojamiento.nombre }}
+    </p>
+    <div class="p-4 bg-gray-100 rounded border">
+      <p class="text-sm text-gray-700">
+        Las habitaciones se crearán asignándoles automáticamente un número ficticio con el formato 
+        <span class="font-bold">HXYZZ</span>, donde:
+      </p>
+      <ul class="list-disc list-inside text-sm text-gray-700">
+        <li><strong>H</strong>: carácter fijo.</li>
+        <li><strong>X</strong>: ID del alojamiento asignado en esta escapada.</li>
+        <li><strong>Y</strong>: capacidad de la habitación.</li>
+        <li><strong>ZZ</strong>: número secuencial (01 para la primera, 02 para la segunda, etc.).</li>
+      </ul>
+    </div>
+  </header>
+
+  {% if success_message %}
+    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded" role="alert">
+      <p class="font-bold">¡Éxito!</p>
+      <p>{{ success_message }}</p>
+      <div class="mt-4 space-x-3">
+        <a href="{% url 'escapada_alojamiento_list' %}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+          Volver a la Lista
+        </a>
+        <a href="{% url 'habitacion_create_for_alojamiento' ea.id %}" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+          Seguir creando
+        </a>
+      </div>
+    </div>
+  {% endif %}
 
   {% if form.errors %}
-    <div class="bg-red-100 text-red-700 p-4 mb-4 rounded">
+    <div class="bg-red-100 text-red-700 p-4 rounded" role="alert">
       <p class="font-semibold">Por favor, corrige los siguientes errores:</p>
       <ul class="list-disc pl-6">
         {% for field in form %}
           {% for error in field.errors %}
-            <li>{{ error }}</li>
+            <li><strong>{{ field.label }}:</strong> {{ error }}</li>
           {% endfor %}
         {% endfor %}
         {% for error in form.non_field_errors %}
@@ -23,38 +56,27 @@
     </div>
   {% endif %}
 
-  <form method="post">
+  <form method="post" novalidate>
     {% csrf_token %}
-
-    <!-- Campo para seleccionar la relación EscapadaAlojamiento -->
-    {% if posibles_escapadas %}
-      <label class="block mb-1">Asociar a la Escapada:</label>
-      <select name="escapada_alojamiento_id" class="mb-4 p-2 border border-gray-300 rounded w-full">
-        <option value="">-- Seleccione la Escapada --</option>
-        {% for ea in posibles_escapadas %}
-          <option value="{{ ea.pk }}">{{ ea.escapada }} ({{ ea.alojamiento }})</option>
-        {% endfor %}
-      </select>
-    {% else %}
-      <p class="text-sm text-red-500">Este alojamiento no está asociado a ninguna Escapada. Por favor, asócialo antes de crear habitaciones.</p>
-    {% endif %}
-
-    <!-- El resto de campos (numero, capacidad, etc.) provienen de form -->
     <div class="space-y-4">
+      {# Se renderizan todos los campos excepto "numero_ficticio", que se asigna automáticamente #}
       {% for field in form %}
-        {% if field.name != 'escapada_alojamiento' %}
+        {% if field.name != "numero_ficticio" %}
           <div>
             <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700">
-              {{ field.label }}
+              {{ field.label }} {% if field.name == "numero" %}<span class="text-gray-500 text-xs">(opcional)</span>{% endif %}
             </label>
             {{ field|add_class:"w-full p-2 border border-gray-300 rounded" }}
+            {% if field.help_text %}
+              <p class="text-xs text-gray-500">{{ field.help_text }}</p>
+            {% endif %}
           </div>
         {% endif %}
       {% endfor %}
     </div>
 
-    <div class="mt-4 flex justify-end space-x-3">
-      <a href="{% url 'habitacion_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+    <div class="mt-6 flex justify-end space-x-4">
+      <a href="{% url 'escapada_alojamiento_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
         Cancelar
       </a>
       <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
@@ -62,5 +84,5 @@
       </button>
     </div>
   </form>
-</div>
+</main>
 {% endblock %}

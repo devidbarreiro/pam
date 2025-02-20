@@ -1,42 +1,981 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Lista de Habitaciones - Gestión de Escapadas{% endblock %}
+
 {% block content %}
-<div class="max-w-5xl mx-auto bg-white shadow rounded-lg p-6">
-  <h2 class="text-2xl font-bold mb-4">Lista de Habitaciones</h2>
-  <table class="min-w-full divide-y divide-gray-200">
-    <thead>
-      <tr>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacidad</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-        <th class="px-6 py-3"></th>
-      </tr>
-    </thead>
-    <tbody class="bg-white divide-y divide-gray-200">
-      {% for habitacion in habitaciones %}
-      <tr>
-        <td class="px-6 py-4 whitespace-nowrap">{{ habitacion.numero }}</td>
-        <td class="px-6 py-4 whitespace-nowrap">{{ habitacion.capacidad }}</td>
-        <td class="px-6 py-4 whitespace-nowrap">{{ habitacion.get_tipo_display }}</td>
-        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-          <a href="{% url 'habitacion_detail' habitacion.pk %}" class="text-blue-600 hover:text-blue-900">Ver</a>
-          <span class="mx-2">|</span>
-          <a href="{% url 'habitacion_update' habitacion.pk %}" class="text-indigo-600 hover:text-indigo-900">Editar</a>
-          <span class="mx-2">|</span>
-          <a href="{% url 'habitacion_delete' habitacion.pk %}" class="text-red-600 hover:text-red-900">Eliminar</a>
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="4" class="px-6 py-4 text-center">No hay habitaciones registradas.</td>
-      </tr>
+<div class="max-w-7xl mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
+  <!-- Header Section -->
+  <div class="p-6">
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h2 class="text-3xl font-bold text-gray-800">Lista de Habitaciones</h2>
+        <p class="text-gray-600 mt-1">Gestione todas sus habitaciones desde este panel</p>
+      </div>
+    </div>
+
+    <!-- Search and Filter Section -->
+    <div class="bg-gray-50 p-4 rounded-lg">
+      <form method="get" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="flex-1">
+            <input type="text" 
+                   id="search" 
+                   name="search"
+                   placeholder="Buscar habitaciones..." 
+                   value="{{ request.GET.search|default:'' }}"
+                   class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+          </div>
+          
+          <select name="escapada" 
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="">Todas las escapadas</option>
+            {% for escapada in escapadas %}
+            <option value="{{ escapada.id }}" 
+                    {% if selected_escapada|stringformat:"s" == escapada.id|stringformat:"s" %}selected{% endif %}>
+              {{ escapada.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+
+          <select name="alojamiento" 
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="">Todos los alojamientos</option>
+            {% for alojamiento in alojamientos %}
+            <option value="{{ alojamiento.id }}"
+                    {% if selected_alojamiento|stringformat:"s" == alojamiento.id|stringformat:"s" %}selected{% endif %}>
+              {{ alojamiento.nombre }}
+            </option>
+            {% endfor %}
+          </select>
+
+          <select name="estado" 
+                  class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            <option value="">Todos los estados</option>
+            {% for estado in habitacion.STATUS_CHOICES %}
+            <option value="{{ estado.0 }}"
+                    {% if selected_estado == estado.0 %}selected{% endif %}>
+              {{ estado.1 }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="flex flex-wrap justify-between items-center gap-4">
+          <div class="flex gap-3">
+            <select name="agrupacion" 
+                   class="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value="escapada" {% if selected_agrupacion == 'escapada' %}selected{% endif %}>Agrupar por Escapada</option>
+              <option value="alojamiento" {% if selected_agrupacion == 'alojamiento' %}selected{% endif %}>Agrupar por Alojamiento</option>
+              <option value="ninguna" {% if selected_agrupacion == 'ninguna' %}selected{% endif %}>Sin agrupación</option>
+            </select>
+            
+            <div class="flex items-center">
+              <input type="checkbox" id="mostrarEstadisticas" name="mostrarEstadisticas" 
+                     class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                     {% if mostrar_estadisticas %}checked{% endif %}>
+              <label for="mostrarEstadisticas" class="ml-2 text-sm font-medium text-gray-700">
+                Mostrar estadísticas
+              </label>
+            </div>
+          </div>
+          
+          <div class="flex justify-end gap-2">
+            <button type="submit" 
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
+              <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              Aplicar Filtros
+            </button>
+            {% if request.GET %}
+            <a href="{% url 'habitacion_list' %}" 
+               class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200">
+              <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Limpiar Filtros
+            </a>
+            {% endif %}
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Resultados y Agrupación -->
+  <div class="px-6 pb-2">
+    <div class="flex justify-between items-center text-sm text-gray-500">
+      <p>{{ habitaciones.paginator.count }} habitaciones encontradas</p>
+      
+      {% if mostrar_estadisticas and habitaciones %}
+      <div class="flex gap-4 bg-blue-50 px-4 py-2 rounded-lg">
+        <div>
+          <span class="font-medium">Total capacidad:</span> 
+          <span class="text-blue-700">{{ total_capacidad }}</span>
+        </div>
+        <div>
+          <span class="font-medium">Ocupación:</span> 
+          <span class="text-blue-700">{{ total_ocupadas }}/{{ total_capacidad }}</span>
+          <span class="text-xs ml-1">({{ porcentaje_ocupacion }}%)</span>
+        </div>
+        <div>
+          <span class="font-medium">Disponibles:</span> 
+          <span class="text-green-600">{{ habitaciones_disponibles }}</span>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not habitaciones %}
+  <!-- Empty State -->
+  <div class="p-12 text-center">
+    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+    </svg>
+    <h3 class="mt-2 text-lg font-medium text-gray-900">No hay habitaciones que coincidan con los filtros</h3>
+    <p class="mt-1 text-sm text-gray-500">Prueba con otros criterios de búsqueda o crea nuevas habitaciones.</p>
+    <div class="mt-6">
+      <a href="{% url 'escapada_alojamiento_list' %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+        Crear habitaciones
+      </a>
+    </div>
+  </div>
+  {% else %}
+  
+  <!-- Diseño de tabla mejorado para la vista normal (sin agrupación) -->
+  {% if selected_agrupacion == 'ninguna' %}
+    <div class="overflow-x-auto">
+      <table class="min-w-full rounded-xl overflow-hidden border-collapse">
+        <thead>
+          <tr class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+            {% for header in headers %}
+            <th scope="col" class="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider">
+              {{ header }}
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-100">
+          {% for habitacion in habitaciones %}
+          <tr class="hover:bg-blue-50/40 transition-all duration-150 {% cycle 'bg-white' 'bg-gray-50/50' %}">
+            <!-- Escapada -->
+            <td class="px-5 py-4">
+              <div class="flex items-center">
+                <div class="h-9 w-9 flex-shrink-0 mr-3 bg-blue-100 rounded-md flex items-center justify-center">
+                  <svg class="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9l2 2a7 7 0 0014 0l2-2M5 9v8a2 2 0 002 2h10a2 2 0 002-2V9" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-900">
+                    {{ habitacion.escapada_alojamiento.escapada.nombre }}
+                  </div>
+                  {% if habitacion.escapada_alojamiento.escapada.lugar %}
+                  <div class="text-xs text-gray-500 mt-1">
+                    <span class="inline-flex items-center">
+                      <svg class="h-3 w-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      {{ habitacion.escapada_alojamiento.escapada.lugar }}
+                    </span>
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+            </td>
+            
+            <!-- Alojamiento -->
+            <td class="px-5 py-4">
+              <div class="flex items-center">
+                <div class="h-9 w-9 flex-shrink-0 mr-3 bg-emerald-100 rounded-md flex items-center justify-center">
+                  <svg class="h-5 w-5 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                </div>
+                <div>
+                  <div class="text-sm font-medium text-gray-900">
+                    {{ habitacion.escapada_alojamiento.alojamiento.nombre }}
+                  </div>
+                  <div class="text-xs text-gray-500 mt-1">
+                    <span class="inline-flex items-center">
+                      <svg class="h-3 w-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                      {{ habitacion.escapada_alojamiento.alojamiento.get_tipo_alojamiento_display }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </td>
+            
+            <!-- Número -->
+            <td class="px-5 py-4">
+              <div class="text-sm font-mono font-semibold text-gray-900 flex items-center">
+                <span class="bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg">
+                  {{ habitacion.numero }}
+                </span>
+                {% if habitacion.numero_ficticio %}
+                <span class="ml-2 text-xs text-gray-500">({{ habitacion.numero_ficticio }})</span>
+                {% endif %}
+              </div>
+            </td>
+            
+            <!-- Capacidad -->
+            <td class="px-5 py-4">
+              <div class="flex items-center">
+                <div class="flex">
+                  {% for i in "x"|ljust:habitacion.capacidad %}
+                    <svg class="w-5 h-5 {% if forloop.counter0 < habitacion.ocupacion_actual %}text-blue-500{% else %}text-gray-300{% endif %}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                    </svg>
+                  {% endfor %}
+                </div>
+                <span class="ml-2 text-sm font-medium text-gray-700">{{ habitacion.capacidad }}</span>
+              </div>
+            </td>
+            
+            <!-- Tipo -->
+            <td class="px-5 py-4">
+              <span class="px-3 py-1.5 inline-flex text-xs font-medium rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+                {{ habitacion.get_tipo_display }}
+              </span>
+            </td>
+            
+            <!-- Ocupación -->
+            <td class="px-5 py-4">
+              {% with ocupacion=habitacion.ocupacion_actual %}
+              <div class="flex flex-col">
+                <div class="flex items-center mb-1">
+                  <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                    <div class="h-2.5 rounded-full 
+                      {% if ocupacion == 0 %}bg-gray-300
+                      {% elif ocupacion < habitacion.capacidad %}bg-blue-500
+                      {% else %}bg-green-500{% endif %}" 
+                      style="width: {% widthratio ocupacion habitacion.capacidad 100 %}%">
+                    </div>
+                  </div>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                  <span class="font-medium {% if ocupacion == 0 %}text-gray-500{% elif ocupacion < habitacion.capacidad %}text-blue-700{% else %}text-green-700{% endif %}">
+                    {{ ocupacion }}/{{ habitacion.capacidad }}
+                  </span>
+                  <span class="text-gray-500">
+                    {% widthratio ocupacion habitacion.capacidad 100 %}%
+                  </span>
+                </div>
+              </div>
+              {% endwith %}
+            </td>
+            
+            <!-- Estado -->
+            <td class="px-5 py-4">
+              {% with estado=habitacion.get_estado_display %}
+              <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium 
+                {% if estado == 'Disponible' %}bg-green-100 text-green-800 border border-green-200
+                {% elif estado == 'Ocupada' %}bg-red-100 text-red-800 border border-red-200
+                {% else %}bg-amber-100 text-amber-800 border border-amber-200{% endif %}">
+                <span class="w-2 h-2 mr-2 rounded-full 
+                  {% if estado == 'Disponible' %}bg-green-500
+                  {% elif estado == 'Ocupada' %}bg-red-500
+                  {% else %}bg-amber-500{% endif %}"></span>
+                {{ estado }}
+              </span>
+              {% endwith %}
+            </td>
+            
+            <!-- Acciones -->
+            <td class="px-5 py-4">
+              <div class="flex justify-end gap-2">
+                <a href="{% url 'habitacion_detail' habitacion.pk %}" 
+                   class="flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 rounded transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                  </svg>
+                </a>
+                <a href="{% url 'habitacion_update' habitacion.pk %}"
+                   class="flex items-center justify-center w-8 h-8 text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 rounded transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                </a>
+                <button onclick="confirmDelete('{% url 'habitacion_delete' habitacion.pk %}')"
+                        class="flex items-center justify-center w-8 h-8 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="{{ headers|length }}" class="px-5 py-10 text-center text-gray-500">
+              No se encontraron habitaciones con los filtros aplicados
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="bg-gray-50">
+          <tr>
+            <td colspan="{{ headers|length }}" class="px-5 py-3 text-xs text-gray-500">
+              Mostrando {{ habitaciones|length }} habitación(es)
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  
+  <!-- Diseño mejorado para grupos de habitaciones por ESCAPADA -->
+  {% elif selected_agrupacion == 'escapada' %}
+    {% regroup habitaciones by escapada_alojamiento.escapada as escapada_grupos %}
+    
+    <div class="mb-6 space-y-6">
+      {% for grupo in escapada_grupos %}
+        <div class="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <!-- Encabezado del grupo -->
+          <div class="bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-4 flex justify-between items-center">
+            <div class="flex items-center">
+              <div class="bg-white/10 p-2 rounded-lg mr-3">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-white">{{ grupo.grouper.nombre }}</h3>
+                {% if grupo.grouper.lugar %}
+                <p class="text-blue-100 text-sm mt-1">{{ grupo.grouper.lugar }}</p>
+                {% endif %}
+              </div>
+              <div class="ml-4 flex items-center">
+                {% if grupo.grouper.fecha_ini and grupo.grouper.fecha_fin %}
+                <span class="px-3 py-1 bg-white/10 text-white text-xs rounded-md">
+                  {{ grupo.grouper.fecha_ini|date:"d/m/Y" }} - {{ grupo.grouper.fecha_fin|date:"d/m/Y" }}
+                </span>
+                {% endif %}
+                <span class="ml-3 px-3 py-1 bg-white/20 text-white text-xs rounded-full">
+                  {{ grupo.list|length }} habitaciones
+                </span>
+              </div>
+            </div>
+            
+            {% if mostrar_estadisticas %}
+            <div class="flex gap-4 text-sm">
+              <div class="bg-white/10 px-3 py-1.5 rounded-lg flex items-center">
+                <svg class="w-4 h-4 text-white/80 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                </svg>
+                <div>
+                  <span class="text-white/80">Capacidad:</span>
+                  <span class="text-white font-medium ml-1">{{ grupo.grouper.capacidad_total }}</span>
+                </div>
+              </div>
+              <div class="bg-white/10 px-3 py-1.5 rounded-lg flex items-center">
+                <svg class="w-4 h-4 text-white/80 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                </svg>
+                <div>
+                  <span class="text-white/80">Ocupadas:</span>
+                  <span class="text-white font-medium ml-1">{{ grupo.grouper.total_ocupadas }}</span>
+                </div>
+              </div>
+              <div class="bg-white/10 px-3 py-1.5 rounded-lg flex items-center">
+                <svg class="w-4 h-4 text-white/80 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <div>
+                  <span class="text-white/80">Disponibles:</span>
+                  <span class="text-white font-medium ml-1">{{ grupo.grouper.habitaciones_disponibles }}</span>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+          
+          <!-- Tabla de habitaciones del grupo -->
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Alojamiento
+                  </th>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Número
+                  </th>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Capacidad
+                  </th>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tipo
+                  </th>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ocupación
+                  </th>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-100">
+                {% for habitacion in grupo.list %}
+                <tr class="hover:bg-blue-50/40 transition-all duration-150 {% cycle 'bg-white' 'bg-gray-50/50' %}">
+                  <!-- Alojamiento -->
+                  <td class="px-5 py-4">
+                    <div class="flex items-center">
+                      <div class="h-8 w-8 flex-shrink-0 mr-3 bg-emerald-100 rounded-md flex items-center justify-center">
+                        <svg class="h-4 w-4 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      </div>
+                      <div class="text-sm text-gray-900">
+                        {{ habitacion.escapada_alojamiento.alojamiento.nombre }}
+                      </div>
+                    </div>
+                  </td>
+                  
+                  <!-- Número -->
+                  <td class="px-5 py-4 text-sm text-gray-900">
+                    <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg font-medium">
+                      {{ habitacion.numero }}
+                    </span>
+                    {% if habitacion.numero_ficticio %}
+                    <span class="ml-2 text-xs text-gray-500">({{ habitacion.numero_ficticio }})</span>
+                    {% endif %}
+                  </td>
+                  
+                  <!-- Capacidad -->
+                  <td class="px-5 py-4">
+                    <div class="flex items-center">
+                      <div class="flex">
+                        {% for i in "x"|ljust:habitacion.capacidad %}
+                          <svg class="w-5 h-5 {% if forloop.counter0 < habitacion.ocupacion_actual %}text-blue-500{% else %}text-gray-300{% endif %}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                          </svg>
+                        {% endfor %}
+                      </div>
+                      <span class="ml-2 text-sm font-medium text-gray-700">{{ habitacion.capacidad }}</span>
+                    </div>
+                  </td>
+                  
+                  <!-- Tipo -->
+                  <td class="px-5 py-4">
+                    <span class="px-3 py-1 inline-flex text-xs font-medium rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+                      {{ habitacion.get_tipo_display }}
+                    </span>
+                  </td>
+                  
+                  <!-- Ocupación -->
+                  <td class="px-5 py-4">
+                    {% with ocupacion=habitacion.ocupacion_actual %}
+                    <div class="flex flex-col">
+                      <div class="flex items-center mb-1">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                          <div class="h-2.5 rounded-full 
+                            {% if ocupacion == 0 %}bg-gray-300
+                            {% elif ocupacion < habitacion.capacidad %}bg-blue-500
+                            {% else %}bg-green-500{% endif %}" 
+                            style="width: {% widthratio ocupacion habitacion.capacidad 100 %}%">
+                          </div>
+                        </div>
+                      </div>
+                      <div class="flex justify-between items-center text-xs">
+                        <span class="font-medium {% if ocupacion == 0 %}text-gray-500{% elif ocupacion < habitacion.capacidad %}text-blue-700{% else %}text-green-700{% endif %}">
+                          {{ ocupacion }}/{{ habitacion.capacidad }}
+                        </span>
+                        <span class="text-gray-500">
+                          {% widthratio ocupacion habitacion.capacidad 100 %}%
+                        </span>
+                      </div>
+                    </div>
+                    {% endwith %}
+                  </td>
+                  
+                  <!-- Estado -->
+                  <td class="px-5 py-4">
+                    {% with estado=habitacion.get_estado_display %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium 
+                      {% if estado == 'Disponible' %}bg-green-100 text-green-800 border border-green-200
+                      {% elif estado == 'Ocupada' %}bg-red-100 text-red-800 border border-red-200
+                      {% else %}bg-amber-100 text-amber-800 border border-amber-200{% endif %}">
+                      <span class="w-2 h-2 mr-2 rounded-full 
+                        {% if estado == 'Disponible' %}bg-green-500
+                        {% elif estado == 'Ocupada' %}bg-red-500
+                        {% else %}bg-amber-500{% endif %}"></span>
+                      {{ estado }}
+                    </span>
+                    {% endwith %}
+                  </td>
+                  
+                  <!-- Acciones -->
+                  <td class="px-5 py-4">
+                    <div class="flex justify-end gap-2">
+                      <a href="{% url 'habitacion_detail' habitacion.pk %}" 
+                         class="flex items-center justify-center w-8 h-8 text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 rounded transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                      </a>
+                      <a href="{% url 'habitacion_update' habitacion.pk %}"
+                         class="flex items-center justify-center w-8 h-8 text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 rounded transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                      </a>
+                      <button onclick="confirmDelete('{% url 'habitacion_delete' habitacion.pk %}')"
+                              class="flex items-center justify-center w-8 h-8 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="7" class="px-5 py-8 text-center text-gray-500">
+                    No se encontraron habitaciones para esta escapada
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
       {% endfor %}
-    </tbody>
-  </table>
-  <div class="mt-4">
-    <a href="{% url 'habitacion_create' %}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-      Añadir Nueva Habitación
-    </a>
+    </div>
+    
+  <!-- Diseño mejorado para grupos de habitaciones por ALOJAMIENTO -->
+  {% elif selected_agrupacion == 'alojamiento' %}
+    {% regroup habitaciones by escapada_alojamiento.alojamiento as alojamiento_grupos %}
+    
+    <div class="mb-6 space-y-6">
+      {% for grupo in alojamiento_grupos %}
+        <div class="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <!-- Encabezado del grupo -->
+          <div class="bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-4 flex justify-between items-center">
+            <div class="flex items-center">
+              <div class="bg-white/10 p-2 rounded-lg mr-3">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-white">{{ grupo.grouper.nombre }}</h3>
+                <p class="text-emerald-100 text-sm mt-1 flex items-center">
+                  <span class="inline-flex items-center mr-2">
+                    <svg class="w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {{ grupo.grouper.direccion|truncatechars:30 }}
+                  </span>
+                  <span class="inline-flex items-center">
+                    <svg class="w-3 h-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    {{ grupo.grouper.get_tipo_alojamiento_display }}
+                  </span>
+                </p>
+              </div>
+              <span class="ml-3 px-3 py-1 bg-white/20 text-white text-xs rounded-full">
+                {{ grupo.list|length }} habitaciones
+              </span>
+            </div>
+            
+            {% if mostrar_estadisticas %}
+            <div class="flex gap-4 text-sm">
+              <div class="bg-white/10 px-3 py-1.5 rounded-lg flex items-center">
+                <svg class="w-4 h-4 text-white/80 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                </svg>
+                <div>
+                  <span class="text-white/80">Capacidad:</span>
+                  <span class="text-white font-medium ml-1">{{ grupo.grouper.capacidad_total }}</span>
+                </div>
+              </div>
+              <div class="bg-white/10 px-3 py-1.5 rounded-lg flex items-center">
+                <svg class="w-4 h-4 text-white/80 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                </svg>
+                <div>
+                  <span class="text-white/80">Ocupadas:</span>
+                  <span class="text-white font-medium ml-1">{{ grupo.grouper.total_ocupadas }}</span>
+                </div>
+              </div>
+              <div class="bg-white/10 px-3 py-1.5 rounded-lg flex items-center">
+                <svg class="w-4 h-4 text-white/80 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <div>
+                  <span class="text-white/80">Disponibles:</span>
+                  <span class="text-white font-medium ml-1">{{ grupo.grouper.habitaciones_disponibles }}</span>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+          
+          <!-- Tabla de habitaciones del grupo -->
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Escapada
+                  </th>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Número
+                  </th>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Capacidad
+                  </th>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tipo
+                  </th>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ocupación
+                  </th>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                  <th scope="col" class="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-100">
+                {% for habitacion in grupo.list %}
+                <tr class="hover:bg-blue-50/40 transition-all duration-150 {% cycle 'bg-white' 'bg-gray-50/50' %}">
+                  <!-- Escapada -->
+                  <td class="px-5 py-4">
+                    <div class="flex items-center">
+                      <div class="h-8 w-8 flex-shrink-0 mr-3 bg-blue-100 rounded-md flex items-center justify-center">
+                        <svg class="h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <div class="text-sm text-gray-900">
+                        {{ habitacion.escapada_alojamiento.escapada.nombre }}
+                      </div>
+                    </div>
+                  </td>
+                  
+                  <!-- Número -->
+                  <td class="px-5 py-4 text-sm text-gray-900">
+                    <span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-lg font-medium">
+                      {{ habitacion.numero }}
+                    </span>
+                    {% if habitacion.numero_ficticio %}
+                    <span class="ml-2 text-xs text-gray-500">({{ habitacion.numero_ficticio }})</span>
+                    {% endif %}
+                  </td>
+                  
+                  <!-- Capacidad -->
+                  <td class="px-5 py-4">
+                    <div class="flex items-center">
+                      <div class="flex">
+                        {% for i in "x"|ljust:habitacion.capacidad %}
+                          <svg class="w-5 h-5 {% if forloop.counter0 < habitacion.ocupacion_actual %}text-emerald-500{% else %}text-gray-300{% endif %}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                          </svg>
+                        {% endfor %}
+                      </div>
+                      <span class="ml-2 text-sm font-medium text-gray-700">{{ habitacion.capacidad }}</span>
+                    </div>
+                  </td>
+                  
+                  <!-- Tipo -->
+                  <td class="px-5 py-4">
+                    <span class="px-3 py-1 inline-flex text-xs font-medium rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+                      {{ habitacion.get_tipo_display }}
+                    </span>
+                  </td>
+                  
+                  <!-- Ocupación -->
+                  <td class="px-5 py-4">
+                    {% with ocupacion=habitacion.ocupacion_actual %}
+                    <div class="flex flex-col">
+                      <div class="flex items-center mb-1">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                          <div class="h-2.5 rounded-full 
+                            {% if ocupacion == 0 %}bg-gray-300
+                            {% elif ocupacion < habitacion.capacidad %}bg-emerald-500
+                            {% else %}bg-green-500{% endif %}" 
+                            style="width: {% widthratio ocupacion habitacion.capacidad 100 %}%">
+                          </div>
+                        </div>
+                      </div>
+                      <div class="flex justify-between items-center text-xs">
+                        <span class="font-medium {% if ocupacion == 0 %}text-gray-500{% elif ocupacion < habitacion.capacidad %}text-emerald-700{% else %}text-green-700{% endif %}">
+                          {{ ocupacion }}/{{ habitacion.capacidad }}
+                        </span>
+                        <span class="text-gray-500">
+                          {% widthratio ocupacion habitacion.capacidad 100 %}%
+                        </span>
+                      </div>
+                    </div>
+                    {% endwith %}
+                  </td>
+                  
+                  <!-- Estado -->
+                  <td class="px-5 py-4">
+                    {% with estado=habitacion.get_estado_display %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium 
+                      {% if estado == 'Disponible' %}bg-green-100 text-green-800 border border-green-200
+                      {% elif estado == 'Ocupada' %}bg-red-100 text-red-800 border border-red-200
+                      {% else %}bg-amber-100 text-amber-800 border border-amber-200{% endif %}">
+                      <span class="w-2 h-2 mr-2 rounded-full 
+                        {% if estado == 'Disponible' %}bg-green-500
+                        {% elif estado == 'Ocupada' %}bg-red-500
+                        {% else %}bg-amber-500{% endif %}"></span>
+                      {{ estado }}
+                    </span>
+                    {% endwith %}
+                  </td>
+                  
+                  <!-- Acciones -->
+                  <td class="px-5 py-4">
+                    <div class="flex justify-end gap-2">
+                      <a href="{% url 'habitacion_detail' habitacion.pk %}" 
+                         class="flex items-center justify-center w-8 h-8 text-emerald-600 hover:text-white bg-emerald-50 hover:bg-emerald-600 rounded transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                      </a>
+                      <a href="{% url 'habitacion_update' habitacion.pk %}"
+                         class="flex items-center justify-center w-8 h-8 text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-600 rounded transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                      </a>
+                      <button onclick="confirmDelete('{% url 'habitacion_delete' habitacion.pk %}')"
+                              class="flex items-center justify-center w-8 h-8 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="7" class="px-5 py-8 text-center text-gray-500">
+                    No se encontraron habitaciones para este alojamiento
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  {% endif %}
+  
+  <!-- Pagination Section -->
+  {% if habitaciones.has_other_pages %}
+  <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+    <div class="flex-1 flex justify-between sm:hidden">
+      {% if habitaciones.has_previous %}
+      <a href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.escapada %}escapada={{ request.GET.escapada }}&{% endif %}{% if request.GET.alojamiento %}alojamiento={{ request.GET.alojamiento }}&{% endif %}{% if request.GET.estado %}estado={{ request.GET.estado }}&{% endif %}page={{ habitaciones.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+        Anterior
+      </a>
+      {% endif %}
+      {% if habitaciones.has_next %}
+      <a href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.escapada %}escapada={{ request.GET.escapada }}&{% endif %}{% if request.GET.alojamiento %}alojamiento={{ request.GET.alojamiento }}&{% endif %}{% if request.GET.estado %}estado={{ request.GET.estado }}&{% endif %}page={{ habitaciones.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+        Siguiente
+      </a>
+      {% endif %}
+    </div>
+    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+      <div>
+        <p class="text-sm text-gray-700">
+          Mostrando
+          <span class="font-medium">{{ habitaciones.start_index }}</span>
+          a
+          <span class="font-medium">{{ habitaciones.end_index }}</span>
+          de
+          <span class="font-medium">{{ habitaciones.paginator.count }}</span>
+          resultados
+        </p>
+      </div>
+      <div>
+        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+          {% if habitaciones.has_previous %}
+          <a href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.escapada %}escapada={{ request.GET.escapada }}&{% endif %}{% if request.GET.alojamiento %}alojamiento={{ request.GET.alojamiento }}&{% endif %}{% if request.GET.estado %}estado={{ request.GET.estado }}&{% endif %}{% if request.GET.agrupacion %}agrupacion={{ request.GET.agrupacion }}&{% endif %}{% if request.GET.mostrarEstadisticas %}mostrarEstadisticas=on&{% endif %}page={{ habitaciones.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+            <span class="sr-only">Anterior</span>
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+            </svg>
+          </a>
+          {% endif %}
+          
+          {% for i in habitaciones.paginator.page_range %}
+            {% if habitaciones.number == i %}
+            <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-blue-50 text-sm font-medium text-blue-600">
+              {{ i }}
+            </span>
+            {% else %}
+            <a href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.escapada %}escapada={{ request.GET.escapada }}&{% endif %}{% if request.GET.alojamiento %}alojamiento={{ request.GET.alojamiento }}&{% endif %}{% if request.GET.estado %}estado={{ request.GET.estado }}&{% endif %}{% if request.GET.agrupacion %}agrupacion={{ request.GET.agrupacion }}&{% endif %}{% if request.GET.mostrarEstadisticas %}mostrarEstadisticas=on&{% endif %}page={{ i }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+              {{ i }}
+            </a>
+            {% endif %}
+          {% endfor %}
+
+          {% if habitaciones.has_next %}
+          <a href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.escapada %}escapada={{ request.GET.escapada }}&{% endif %}{% if request.GET.alojamiento %}alojamiento={{ request.GET.alojamiento }}&{% endif %}{% if request.GET.estado %}estado={{ request.GET.estado }}&{% endif %}{% if request.GET.agrupacion %}agrupacion={{ request.GET.agrupacion }}&{% endif %}{% if request.GET.mostrarEstadisticas %}mostrarEstadisticas=on&{% endif %}page={{ habitaciones.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+            <span class="sr-only">Siguiente</span>
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+            </svg>
+          </a>
+          {% endif %}
+        </nav>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="hidden fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+      <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div class="sm:flex sm:items-start">
+          <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+            <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+              Eliminar Habitación
+            </h3>
+            <div class="mt-2">
+              <p class="text-sm text-gray-500">
+                ¿Estás seguro que deseas eliminar esta habitación? Esta acción no se puede deshacer.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <form id="deleteForm" method="POST">
+          {% csrf_token %}
+          <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
+            Eliminar
+          </button>
+        </form>
+        <button type="button" onclick="closeDeleteModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+          Cancelar
+        </button>
+      </div>
+    </div>
   </div>
 </div>
+
+<!-- CSS adicional para animaciones y efectos -->
+<style>
+  /* Animación para hover de filas */
+  tr.hover\:bg-blue-50\/40:hover {
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.1);
+  }
+  
+  /* Animación para ocupación */
+  .h-2\.5.rounded-full {
+    transition: width 0.7s ease-in-out;
+  }
+  
+  /* Efecto para status badges */
+  .inline-flex.items-center.px-3.py-1.rounded-full,
+  .px-3.py-1.inline-flex.rounded-full {
+    transition: all 0.2s ease;
+  }
+  .inline-flex.items-center.px-3.py-1.rounded-full:hover,
+  .px-3.py-1.inline-flex.rounded-full:hover {
+    transform: scale(1.05);
+  }
+  
+  /* Mejoras a botones de acción */
+  .flex.items-center.justify-center.w-8.h-8 {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+  }
+  .flex.items-center.justify-center.w-8.h-8:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Función para mostrar el modal de confirmación de eliminación
+  function confirmDelete(deleteUrl) {
+    const modal = document.getElementById('deleteModal');
+    const deleteForm = document.getElementById('deleteForm');
+    deleteForm.action = deleteUrl;
+    modal.classList.remove('hidden');
+  }
+
+  // Función para cerrar el modal
+  function closeDeleteModal() {
+    const modal = document.getElementById('deleteModal');
+    modal.classList.add('hidden');
+  }
+
+  // Búsqueda en tiempo real
+  document.getElementById('search').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const rows = document.querySelectorAll('tbody tr');
+    
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+  });
+
+  // Cerrar modal al hacer clic fuera de él
+  window.onclick = function(event) {
+    const modal = document.getElementById('deleteModal');
+    if (event.target === modal) {
+      closeDeleteModal();
+    }
+  }
+
+  // Cerrar modal con la tecla ESC
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      closeDeleteModal();
+    }
+  });
+</script>
 {% endblock %}

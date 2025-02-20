@@ -6,7 +6,7 @@
     <title>{% block title %}Gestión de Escapadas{% endblock %}</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Custom CSS -->
+    <!-- Custom CSS base -->
     {% load static %}
     <style>
         .nav-link {
@@ -29,6 +29,8 @@
             min-height: calc(100vh - 160px);
         }
     </style>
+    {% block extrahead %}{% endblock %}
+    {% block extrastyle %}{% endblock %}
 </head>
 <body class="bg-gray-50">
     <!-- Navigation -->
@@ -68,7 +70,7 @@
             </div>
         </div>
     </nav>
-
+    
     <!-- Mobile menu -->
     <div class="hidden mobile-menu sm:hidden">
         <div class="px-2 pt-2 pb-3 space-y-1">
@@ -78,7 +80,7 @@
             <a href="{% url 'persona_list' %}" class="block px-3 py-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-50">Personas</a>
         </div>
     </div>
-
+    
     <!-- Main Content -->
     <div class="content-wrapper max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {% if messages %}
@@ -88,11 +90,10 @@
                 </div>
             {% endfor %}
         {% endif %}
-
-        {% block content %}
-        {% endblock %}
+    
+        {% block content %}{% endblock %}
     </div>
-
+    
     <!-- Footer -->
     <footer class="bg-white border-t">
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
@@ -101,7 +102,7 @@
             </p>
         </div>
     </footer>
-
+    
     <script>
         // Mobile menu toggle
         document.querySelector('.mobile-menu-button').addEventListener('click', function() {

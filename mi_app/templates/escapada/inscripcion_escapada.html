@@ -6,14 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Formulario de inscripción para {{ escapada.nombre }}">
   <title>Inscripción a Escapada - {{ escapada.nombre }}</title>
+  <!-- En desarrollo se usa el CDN; en producción se recomienda PostCSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Agregar fuente moderna y optimizada -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="min-h-screen font-['Inter']">
-  <!-- Loading overlay -->
+<body class="min-h-screen font-['Inter'] bg-gray-50">
+  <!-- Overlay de carga -->
   <div id="loadingOverlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center">
     <div class="bg-white p-4 rounded-lg shadow-lg">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -21,188 +21,442 @@
     </div>
   </div>
 
-  <div 
-    class="min-h-screen flex items-center justify-center bg-cover bg-center bg-fixed p-4 relative"
-    style="background-image: url('{% static "images/inscripcion_escapada.jpg" %}');"
-    aria-hidden="true"
-  >
+  <div class="min-h-screen flex items-center justify-center bg-cover bg-center bg-fixed p-4 relative"
+       style="background-image: url('{% static "images/inscripcion_escapada.jpg" %}');">
     <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-
     <div class="relative bg-white/95 shadow-2xl rounded-lg p-8 max-w-4xl w-full z-10">
+
+      <!-- Indicador de pasos -->
+      {% if not confirmacion_final %}
+      <div class="mb-8">
+        <div class="flex items-center justify-between">
+          <!-- Paso 1: Verificación de DNI -->
+          <div class="flex items-center">
+            <div class="rounded-full h-8 w-8 flex items-center justify-center {% if not mostrar_selector_capacidad and not mostrar_habitaciones and not mostrar_form_companeros %}bg-blue-600 text-white{% else %}bg-blue-100 text-blue-600{% endif %} font-bold">1</div>
+            <div class="ml-2 text-sm font-medium {% if not mostrar_selector_capacidad and not mostrar_habitaciones and not mostrar_form_companeros %}text-blue-600{% else %}text-gray-500{% endif %}">Verificación</div>
+          </div>
+          <!-- Paso 2: Selección de Capacidad -->
+          <div class="h-px w-12 bg-gray-300"></div>
+          <div class="flex items-center">
+            <div class="rounded-full h-8 w-8 flex items-center justify-center {% if mostrar_selector_capacidad %}bg-blue-600 text-white{% elif mostrar_habitaciones or mostrar_form_companeros %}bg-blue-100 text-blue-600{% else %}bg-gray-100 text-gray-400{% endif %} font-bold">2</div>
+            <div class="ml-2 text-sm font-medium {% if mostrar_selector_capacidad %}text-blue-600{% elif mostrar_habitaciones or mostrar_form_companeros %}text-gray-500{% else %}text-gray-400{% endif %}">Capacidad</div>
+          </div>
+          <!-- Paso 3: Selección de Habitación -->
+          <div class="h-px w-12 bg-gray-300"></div>
+          <div class="flex items-center">
+            <div class="rounded-full h-8 w-8 flex items-center justify-center {% if mostrar_habitaciones %}bg-blue-600 text-white{% elif mostrar_form_companeros %}bg-blue-100 text-blue-600{% else %}bg-gray-100 text-gray-400{% endif %} font-bold">3</div>
+            <div class="ml-2 text-sm font-medium {% if mostrar_habitaciones %}text-blue-600{% elif mostrar_form_companeros %}text-gray-500{% else %}text-gray-400{% endif %}">Habitación</div>
+          </div>
+          <!-- Paso 4: Agregar Compañeros -->
+          <div class="h-px w-12 bg-gray-300"></div>
+          <div class="flex items-center">
+            <div class="rounded-full h-8 w-8 flex items-center justify-center {% if mostrar_form_companeros %}bg-blue-600 text-white{% else %}bg-gray-100 text-gray-400{% endif %} font-bold">4</div>
+            <div class="ml-2 text-sm font-medium {% if mostrar_form_companeros %}text-blue-600{% else %}text-gray-400{% endif %}">Compañeros</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Encabezado -->
       <header class="text-center mb-8">
-        <h1 class="text-4xl font-extrabold text-gray-800 mb-2">
-          ¡BIENVENIDO A {{ escapada.nombre }}!
-        </h1>
-        {% if escapada.fecha_inicio %}
-          <p class="text-gray-600">
-            {{ escapada.fecha_inicio|date:"d/m/Y" }} - {{ escapada.fecha_fin|date:"d/m/Y" }}
-          </p>
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-2">¡BIENVENIDO A {{ escapada.nombre }}!</h1>
+        {% if escapada.fecha_ini %}
+          <p class="text-gray-600">{{ escapada.fecha_ini|date:"d/m/Y" }} - {{ escapada.fecha_fin|date:"d/m/Y" }}</p>
         {% endif %}
       </header>
 
+      <!-- Mensajes del sistema -->
       {% if messages %}
         {% for message in messages %}
-          <div class="mb-6 p-4 rounded-lg {% if message.tags == 'error' %}bg-red-100 text-red-700{% elif message.tags == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}"
-               role="alert">
+          <div class="mb-6 p-4 rounded-lg {% if message.tags == 'error' %}bg-red-100 text-red-700{% elif message.tags == 'success' %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}" role="alert">
             {{ message }}
           </div>
         {% endfor %}
       {% endif %}
 
-      {% if not persona and not habitaciones_disponibles %}
-        <!-- Formulario de DNI mejorado -->
+      <!-- PASO 1: VERIFICACIÓN DE DNI -->
+      {% if not persona and not mostrar_selector_capacidad and not mostrar_habitaciones and not mostrar_form_companeros and not confirmacion_final %}
         <form method="post" class="space-y-6" id="dniForm" novalidate>
           {% csrf_token %}
+          <input type="hidden" name="verificar_dni" value="true">
           <div>
-            <label for="dni" class="block text-lg font-medium text-gray-700 mb-2">
-              Ingresa tu DNI para continuar
-            </label>
-            <div class="relative">
-              <input
-                type="text"
-                name="dni"
-                id="dni"
-                pattern="[0-9]{8}[A-Za-z]{1}"
-                required
-                maxlength="9"
-                class="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-lg"
-                placeholder="Ejemplo: 12345678A"
-                aria-describedby="dni-help"
-              >
-            </div>
-            <p id="dni-help" class="mt-2 text-sm text-gray-500">
-              Introduce tu DNI con letra, sin espacios ni guiones
-            </p>
+            <label for="dni" class="block text-lg font-medium text-gray-700 mb-2">Ingresa tu DNI para continuar</label>
+            <input type="text" name="dni" id="dni" pattern="[0-9]{8}[A-Za-z]{1}" required maxlength="9"
+                   class="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-lg"
+                   placeholder="Ejemplo: 12345678A" aria-describedby="dni-help">
+            <p id="dni-help" class="mt-2 text-sm text-gray-500">Introduce tu DNI con letra, sin espacios ni guiones</p>
           </div>
-          <button 
-            type="submit"
-            class="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 text-lg"
-          >
+          <button type="submit" class="w-full px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 text-lg">
             Verificar DNI
           </button>
         </form>
       {% endif %}
 
-      {% if persona and habitaciones_disponibles %}
-        <div class="mb-8">
-          <p class="text-xl text-gray-700">
-            Hola <span class="font-semibold">{{ persona.nombre }}</span>, 
-            {% if persona.habitacion %}
-              actualmente estás en la habitación {{ persona.habitacion.numero }}.
-            {% else %}
-              elige una habitación:
-            {% endif %}
-          </p>
+      <!-- CASO: NO INSCRITO -->
+      {% if no_inscrito %}
+        <div class="mt-8 bg-red-50 border-l-4 border-red-600 p-6 rounded-lg">
+          <div class="flex items-start">
+            <div class="flex-shrink-0">
+              <svg class="h-10 w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div class="ml-4">
+              <h3 class="text-xl font-bold text-red-800">No estás inscrito en esta escapada</h3>
+              <div class="mt-2 text-red-700">
+                <p>Lo sentimos, no encontramos tu inscripción para {{ escapada.nombre }}.</p>
+                <p class="mt-2">Posibles razones:</p>
+                <ul class="list-disc ml-5 mt-1 space-y-1">
+                  <li>El DNI ingresado no está registrado</li>
+                  <li>Estás inscrito en otra escapada</li>
+                  <li>Tu inscripción aún no ha sido procesada</li>
+                </ul>
+                <p class="mt-4">Si crees que se trata de un error, contacta a los organizadores.</p>
+              </div>
+              <div class="mt-6">
+                <a href="{% url 'escapada_inscripcion' escapada.id %}" class="inline-block px-5 py-3 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition duration-200">
+                  Intentar con otro DNI
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
+      {% endif %}
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {% for hab in habitaciones_disponibles %}
-            <div class="{% if persona.habitacion and persona.habitacion.id == hab.id %}bg-blue-50 border-blue-200{% else %}bg-white border-gray-200{% endif %} 
-                        border-2 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200">
-              <div class="p-6">
-                <div class="flex justify-between items-start mb-4">
-                  <h3 class="text-2xl font-bold text-gray-800">
-                    Habitación {{ hab.numero }}
-                    {% if persona.habitacion and persona.habitacion.id == hab.id %}
-                      <span class="ml-2 text-sm font-medium text-blue-600">(Tu habitación actual)</span>
-                    {% endif %}
-                  </h3>
-                  <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
-                    {{ hab.get_tipo_display }}
-                  </span>
-                </div>
-                
-                <div class="space-y-3 mb-6">
-                  <div class="flex items-center">
-                    <svg class="w-5 h-5 text-gray-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <p class="text-gray-600">
-                      Ocupación: <span class="font-medium">{{ hab.persona_set.count }} de {{ hab.capacidad }}</span>
-                    </p>
+      <!-- CASO: INSCRITO CON PAGO PENDIENTE -->
+      {% if pendiente_pago %}
+      <div class="mt-8 bg-yellow-50 border-l-4 border-yellow-500 p-6 rounded-lg">
+        <div class="flex items-start">
+          <div class="flex-shrink-0">
+            <svg class="h-10 w-10 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div class="ml-4">
+            <h3 class="text-xl font-bold text-yellow-800">Pendiente de pago</h3>
+            <div class="mt-2 text-yellow-700">
+              <p>Hola <span class="font-semibold">{{ persona.nombre }}</span>, estás inscrito en {{ escapada.nombre }} pero tienes un importe pendiente de pago.</p>
+              <div class="mt-4 bg-white/70 p-4 rounded-lg">
+                <h4 class="font-medium text-yellow-800">Información de pago:</h4>
+                <p class="mt-2">Beneficiario: Fundación Hakuna Revolution</p>
+                <p>Cuenta: ES34 0049 5232 8925 1656 9331</p>
+                <p>Concepto: {{ persona.nombre }} - {{ escapada.nombre }}</p>
+                <p class="mt-2">Importe pendiente: <span class="font-semibold">{{ inscripcion.pendiente }}€</span></p>
+              </div>
+              <p class="mt-4">Por favor, realiza el pago y envía el comprobante a <a href="mailto:pagos@behakuna.com" class="underline hover:text-yellow-900">pagos@behakuna.com</a>.</p>
+            </div>
+            <div class="mt-6 flex flex-wrap gap-4">
+              <a href="{% url 'escapada_inscripcion' escapada.id %}" class="inline-block px-5 py-3 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition duration-200">
+                Intentar nuevamente
+              </a>
+              <a href="https://behakuna.com/contacto" target="_blank" class="inline-block px-5 py-3 bg-white text-yellow-700 font-medium rounded-lg border border-yellow-300 hover:bg-yellow-50 transition duration-200">
+                Contactar a soporte
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+
+
+      <!-- PASO 2: SELECCIÓN DE CAPACIDAD -->
+      {% if mostrar_selector_capacidad %}
+        <div class="mb-8">
+          <h2 class="text-2xl font-bold text-gray-800 mb-4">Elige la capacidad de habitación</h2>
+          <p class="text-gray-600 mb-6">
+            Hola <span class="font-semibold">{{ persona.nombre }}</span>, selecciona el tipo de habitación según la cantidad de personas que se alojarán.
+          </p>
+          <form method="post" id="capacidadForm" class="space-y-8">
+            {% csrf_token %}
+            <input type="hidden" name="seleccionar_capacidad" value="true">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {% for capacidad in capacidades_disponibles %}
+              <div class="relative">
+                <input type="radio" id="capacidad{{ capacidad.valor }}" name="capacidad" value="{{ capacidad.valor }}"
+                       class="peer absolute opacity-0 h-0 w-0" required>
+                <label for="capacidad{{ capacidad.valor }}" class="flex flex-col items-center p-4 bg-white border-2 border-gray-200 rounded-xl cursor-pointer transition-all peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50">
+                  <div class="rounded-full h-12 w-12 flex items-center justify-center bg-blue-100 text-blue-700 font-bold mb-2">
+                    {{ capacidad.valor }}
                   </div>
-                  {% if hab.descripcion %}
-                    <p class="text-gray-600">
-                      {{ hab.descripcion }}
-                    </p>
-                  {% endif %}
+                  <span class="text-lg font-semibold">{{ capacidad.nombre }}</span>
+                  <p class="text-sm text-gray-500 mt-1">Habitación para {{ capacidad.valor }} persona{% if capacidad.valor > 1 %}s{% endif %}</p>
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+            <!-- Opción "¡Sorpréndeme!" -->
+            <div class="mt-6 bg-gradient-to-r from-purple-100 to-blue-100 p-4 rounded-lg">
+              <div class="flex items-start">
+                <input type="checkbox" id="sorprendeme" name="sorprendeme" class="mt-1.5">
+                <div class="ml-3">
+                  <label for="sorprendeme" class="text-lg font-semibold text-gray-800 cursor-pointer">¡Sorpréndeme! Me adapto a donde sea</label>
+                  <p class="text-sm text-gray-600 mt-1">
+                    Al marcar esta opción, se te asignará automáticamente una habitación (priorizando las más ocupadas).
+                  </p>
                 </div>
+              </div>
+            </div>
+            <div class="flex justify-between mt-8">
+              <a href="{% url 'escapada_inscripcion' escapada.id %}?reset=true" class="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition" onclick="showLoading()">Volver al inicio</a>
+              <button type="submit" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" onclick="showLoading()">Continuar</button>
+            </div>
+          </form>
+        </div>
+      {% endif %}
 
-                {% if persona.habitacion and persona.habitacion.id == hab.id %}
-                  <button 
-                    type="button"
-                    disabled
-                    class="w-full py-3 bg-blue-100 text-blue-700 font-semibold rounded-lg cursor-not-allowed"
-                  >
-                    Habitación Actual
-                  </button>
-                {% else %}
-                  <form method="post" class="mt-auto" onsubmit="return handleSubmit(event, '{{ hab.numero }}')">
+      <!-- PASO 3: SELECCIÓN DE HABITACIÓN -->
+      {% if mostrar_habitaciones %}
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold text-gray-800 mb-4">Elige tu habitación</h2>
+          <p class="text-gray-600 mb-1">
+            Hola <span class="font-semibold">{{ persona.nombre }}</span>, selecciona una habitación para {{ capacidad_nombre }}.
+          </p>
+          <!-- Selector opcional para cambiar capacidad -->
+          <div class="flex flex-wrap gap-2 mt-4 mb-6">
+            {% for cap in todas_capacidades %}
+            <a href="?capacidad={{ cap }}" class="px-3 py-1.5 rounded-full text-sm font-medium {% if capacidad_seleccionada == cap %}bg-blue-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} transition">
+              {% if cap == 1 %}Individual{% elif cap == 2 %}Doble{% elif cap == 3 %}Triple{% elif cap == 4 %}Cuádruple{% elif cap == 5 %}Quintuple{% elif cap == 6 %}Sextuple{% elif cap == 7 %}Septuple{% else %}{{ cap }} personas{% endif %}
+            </a>
+            {% endfor %}
+          </div>
+          {% if habitaciones_por_alojamiento %}
+            <div class="space-y-8">
+              {% for grupo in habitaciones_por_alojamiento %}
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                  <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white">
+                    <h3 class="text-xl font-bold">{{ grupo.alojamiento.nombre }}</h3>
+                    <p class="text-sm opacity-90">{{ grupo.alojamiento.direccion }}</p>
+                  </div>
+                  <div class="p-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {% for habitacion in grupo.habitaciones %}
+                        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                          <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-lg font-bold">Habitación {{ habitacion.numero }}</h4>
+                            <span class="px-2 py-1 text-xs rounded-full {% if habitacion.estado == 'disponible' %}bg-green-100 text-green-800{% elif habitacion.estado == 'reservada' %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
+                              {{ habitacion.get_estado_display }}
+                            </span>
+                          </div>
+                          <p class="text-sm text-gray-500">Capacidad: {{ habitacion.capacidad }} persona{% if habitacion.capacidad > 1 %}s{% endif %}</p>
+                          <p class="text-xs italic text-gray-400 mt-1">
+                            Número ficticio: <span class="font-semibold">{{ habitacion.numero_ficticio }}</span>
+                            {% if habitacion.numero %}
+                              (<em>Número real: {{ habitacion.numero }}</em>)
+                            {% endif %}
+                          </p>                          
+                          <form method="post" class="mt-4">
+                            {% csrf_token %}
+                            <input type="hidden" name="seleccionar_habitacion" value="true">
+                            <input type="hidden" name="habitacion_id" value="{{ habitacion.id }}">
+                            <button type="submit" class="w-full py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition" onclick="showLoading()">Seleccionar</button>
+                          </form>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="bg-yellow-50 p-6 rounded-lg text-center">
+              <svg class="mx-auto h-12 w-12 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <h3 class="mt-2 text-lg font-medium">No hay habitaciones disponibles con esta capacidad</h3>
+              <p class="mt-1 text-gray-600">Selecciona otra capacidad o prueba más tarde.</p>
+            </div>
+          {% endif %}
+          <div class="flex justify-between mt-8">
+            <a href="{% url 'escapada_inscripcion' escapada.id %}?reset=true" class="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition" onclick="showLoading()">Volver al inicio</a>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- PASO 4: AGREGAR COMPAÑEROS -->
+      {% if mostrar_form_companeros %}
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold text-gray-800 mb-4">Añade a tus compañeros</h2>
+          <div class="bg-blue-50 p-4 rounded-lg mb-6">
+            <div class="flex items-center">
+              <svg class="h-5 w-5 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                  Has seleccionado la habitación <span class="font-semibold">#{{ habitacion.numero }}</span> 
+                  en <span class="font-semibold">{{ habitacion.escapada_alojamiento.alojamiento.nombre }}</span>.
+                  <br>
+                  Esta habitación (número ficticio: <span class="font-semibold">{{ habitacion.numero_ficticio|default:habitacion.numero }}</span>) tiene capacidad para <span class="font-semibold">{{ habitacion.capacidad }}</span> persona{% if habitacion.capacidad > 1 %}s{% endif %}.
+                  {% if habitacion.ocupantes|length > 0 %}
+                  Actualmente hay <span class="font-semibold">{{ habitacion.ocupantes|length }}</span> ocupante{% if habitacion.ocupantes|length > 1 %}s{% endif %}...
+                  {% else %}
+                    Está vacía.
+                  {% endif %}
+                </p>
+              </div>
+            </div>
+          </div>
+          <form method="post" id="companerosForm" class="space-y-6">
+            {% csrf_token %}
+            <input type="hidden" name="confirmar_companeros" value="true">
+            <p class="text-gray-700 mb-3">Ingresa los DNI de las personas que se alojarán contigo:</p>
+            <!-- Mostrar el DNI del anfitrión (no editable) -->
+            <div class="mb-4 bg-gray-50 p-3 rounded-lg">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Tu DNI (Anfitrión)</label>
+              <input type="text" value="{{ persona.dni }}" disabled class="w-full p-2 border border-gray-300 bg-gray-100 rounded-lg text-gray-700">
+            </div>
+            <!-- Campos dinámicos: Se generan tantos campos como plazas libres (se dejan huecos según capacidad, por ejemplo, 1 hueco libre para 4 o 5, 2 para 6 o 7) -->
+            <div id="companeros-container" class="space-y-3">
+              {% with huecos=plazas_companeros %}
+                {% if huecos > 0 %}
+                  {% for i in "x"|ljust:huecos %}
+                    <div class="compañero-input">
+                      <label class="block text-sm font-medium text-gray-700 mb-1">DNI Compañero {{ forloop.counter }}</label>
+                      <input type="text" name="dni_companero" pattern="[0-9]{8}[A-Za-z]{1}" maxlength="9"
+                            class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Ejemplo: 12345678A">
+                    </div>
+                  {% endfor %}
+                {% endif %}
+              {% endwith %}
+            </div>
+            {% if dnis_invalidos %}
+              <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                <div class="flex">
+                  <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">Problemas con algunos DNIs:</h3>
+                    <ul class="mt-1 list-disc list-inside text-sm text-red-700">
+                      {% for error in dnis_invalidos %}
+                        <li>{{ error.dni }}: {{ error.motivo }}</li>
+                      {% endfor %}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+            <div class="flex justify-between mt-8">
+              <a href="{% url 'escapada_inscripcion' escapada.id %}?reset=true" class="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition" onclick="showLoading()">Cancelar</a>
+              <div class="flex gap-3">
+                {% if puede_reservar %}
+                  <form method="post" id="reservaForm">
                     {% csrf_token %}
-                    <input type="hidden" name="dni" value="{{ persona.dni }}">
-                    <input type="hidden" name="habitacion_id" value="{{ hab.id }}">
-                    <button 
-                      type="submit"
-                      name="asignar_habitacion"
-                      value="true"
-                      class="w-full py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200"
-                    >
-                      {% if persona.habitacion %}
-                        Cambiar a esta habitación
-                      {% else %}
-                        Seleccionar habitación
-                      {% endif %}
+                    <input type="hidden" name="reservar_habitacion" value="true">
+                    <button type="submit" class="px-6 py-3 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700 focus:outline-none" onclick="showLoading()">
+                      Reservar 15 minutos
                     </button>
                   </form>
                 {% endif %}
+                <button type="submit" form="companerosForm" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none" onclick="showLoading()">
+                  Confirmar asignación
+                </button>
               </div>
             </div>
-          {% endfor %}
+          </form>
         </div>
       {% endif %}
+
+      <!-- Pantalla Final de Confirmación -->
+      {% if confirmacion_final %}
+        <div class="text-center">
+          <div class="mb-8">
+            <div class="mx-auto w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+              <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 class="mt-4 text-2xl font-bold text-gray-800">¡Asignación completada!</h2>
+            <p class="mt-2 text-gray-600">
+              Te has registrado en la habitación <span class="font-semibold">#{{ habitacion.numero }}</span> del alojamiento <span class="font-semibold">{{ habitacion.escapada_alojamiento.alojamiento.nombre }}</span>.
+              <br>
+              <span class="italic text-sm text-gray-500">El número mostrado es ficticio; se te comunicará el número real más adelante.</span>
+            </p>
+          </div>
+          <div class="bg-white border border-gray-200 rounded-lg p-6 mb-8 text-left">
+            <h3 class="text-lg font-semibold mb-4">Resumen de tu reserva:</h3>
+            <div class="space-y-3">
+              <div class="flex">
+                <span class="font-medium w-32">Alojamiento:</span>
+                <span>{{ habitacion.escapada_alojamiento.alojamiento.nombre }}</span>
+              </div>
+              <div class="flex">
+                <span class="font-medium w-32">Habitación:</span>
+                <span>{{ habitacion.numero }} <span class="italic text-xs text-gray-500">(ficticio)</span></span>
+              </div>
+              <div class="flex">
+                <span class="font-medium w-32">Capacidad:</span>
+                <span>{{ habitacion.capacidad }} persona{% if habitacion.capacidad > 1 %}s{% endif %}</span>
+              </div>
+              <div class="flex">
+                <span class="font-medium w-32">Ocupantes:</span>
+                <div>
+                  <p class="mb-1">{{ anfitrion.nombre }} (Anfitrión)</p>
+                  {% for companero in companeros %}
+                    <p>{{ companero.nombre }}</p>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+          <a href="{% url 'escapada_inscripcion' escapada.id %}" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
+            Finalizar
+          </a>
+        </div>
+      {% endif %}
+
     </div>
   </div>
 
+  <!-- Scripts personalizados -->
   <script>
-    // Mejorar validación del DNI
     document.addEventListener('DOMContentLoaded', function() {
       const dniForm = document.getElementById('dniForm');
       const dniInput = document.getElementById('dni');
-
       if (dniForm) {
         dniForm.addEventListener('submit', function(e) {
           const dni = dniInput.value.toUpperCase();
           const dniRegex = /^[0-9]{8}[A-Z]$/;
-          
           if (!dniRegex.test(dni)) {
             e.preventDefault();
             alert('Por favor, introduce un DNI válido (8 números seguidos de una letra)');
             return false;
           }
-          
           showLoading();
         });
       }
+      // Actualizar contador de tiempo para reservas temporales
+      if (document.getElementById('tiempoRestante')) {
+        actualizarTiempoRestante();
+        setInterval(actualizarTiempoRestante, 1000);
+      }
+      function actualizarTiempoRestante() {
+        {% if expiracion_reserva %}
+          const ahora = new Date();
+          const expiracion = new Date('{{ expiracion_reserva|date:"c" }}');
+          const diferencia = expiracion - ahora;
+          if (diferencia <= 0) { location.reload(); return; }
+          const minutos = Math.floor(diferencia / 60000);
+          const segundos = Math.floor((diferencia % 60000) / 1000);
+          document.getElementById('tiempoRestante').textContent = `${minutos}:${segundos < 10 ? '0' : ''}${segundos}`;
+        {% endif %}
+      }
+      // Mostrar overlay de carga
+      window.showLoading = function() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.classList.remove('hidden');
+      }
+      // Función para volver
+      window.goBack = function() {
+        if (window.history.length > 1) window.history.back();
+        else window.location.href = "{% url 'escapada_inscripcion' escapada.id %}";
+        showLoading();
+      }
     });
-
-    // Mejorar manejo de cambio de habitación
-    function handleSubmit(event, numHab) {
-      if (!confirm(`¿Estás seguro de que deseas cambiar a la habitación ${numHab}?`)) {
-        event.preventDefault();
-        return false;
-      }
-      
-      showLoading();
-      return true;
-    }
-
-    // Mostrar overlay de carga
-    function showLoading() {
-      const overlay = document.getElementById('loadingOverlay');
-      if (overlay) {
-        overlay.classList.remove('hidden');
-      }
-    }
   </script>
 </body>
 </html>

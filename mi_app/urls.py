@@ -15,10 +15,8 @@ urlpatterns = [
     path('escapadas/<int:pk>/eliminar/', views.EscapadaDeleteView.as_view(), name='escapada_delete'),
     # NUEVA URL: Seleccionar alojamientos para una escapada
     path('escapadas/<int:pk>/alojamientos/', views.EscapadaAlojamientoSelectView.as_view(), name='escapada_alojamiento_select'),
-    path('escapadas/<int:pk>/asociar-alojamientos/', views.EscapadaAlojamientoMultipleCreateView.as_view(), name='escapada_alojamiento_multiple_create'),
+    path('escapadas/<int:pk>/asociar-alojamientos/', views.EscapadaAlojamientoMultipleCreateView.as_view(), name='escapada_alojamiento_multiple_create'), ###
     path('escapadas/<int:pk>/inscripcion/', views.EscapadaInscripcionView.as_view(), name='escapada_inscripcion'),
-
-
 
     # URLs para Alojamiento
     path('alojamientos/', views.AlojamientoListView.as_view(), name='alojamiento_list'),
@@ -29,32 +27,36 @@ urlpatterns = [
 
     # URLs para Habitacion
     path('habitaciones/', views.HabitacionListView.as_view(), name='habitacion_list'),
-    path('habitaciones/nueva/', views.HabitacionCreateView.as_view(), name='habitacion_create'),
     path('habitaciones/<int:pk>/', views.HabitacionDetailView.as_view(), name='habitacion_detail'),
     path('habitaciones/<int:pk>/editar/', views.HabitacionUpdateView.as_view(), name='habitacion_update'),
-    path('habitaciones/<int:pk>/eliminar/', views.HabitacionDeleteView.as_view(), name='habitacion_delete'),
-    # Vista que crea 1 habitación (automática o manual)
-    path('habitaciones/crear-para-alojamiento/', views.HabitacionCreateForAlojamientoView.as_view(), name='habitacion_create_for_alojamiento'),
-    # Vista que crea varias habitaciones con formset
-    path('habitaciones/multiple/<int:ea_id>/', views.HabitacionMultipleCreateView.as_view(), name='habitacion_multiple_create'),
+    path('habitacion/create/', views.habitacion_create, name='habitacion_create'),
+    path('habitaciones/<int:pk>/eliminar/', views.HabitacionDeleteView.as_view(), name='habitacion_delete'),  # Usar la clase
+    path('habitaciones/nueva/<int:ea_id>/', views.HabitacionBulkCreateView.as_view(), name='habitacion_create_for_alojamiento'),
+    path('habitacion/<int:habitacion_id>/remove-ocupante/<str:persona_id>/', views.remove_ocupante, name='remove_ocupante'),
+    path('habitacion/<int:habitacion_id>/asignar-personas/', views.asignar_personas_habitacion, name='asignar_personas_habitacion'),
 
-    # Vista que crea varias habitaciones pidiendo cantidad 
-    path(
-    'habitaciones/crear-variashabs/<int:ea_id>/',
-    views.HabitacionMultipleAutoCreateView.as_view(),
-    name='habitacion_multiple_auto_create'),
+    # API endpoints para JavaScript
+    path('api/habitacion/<int:pk>/', views.habitacion_api_detail, name='habitacion_api_detail'),
+    path('api/habitacion/<int:pk>/ocupantes/', views.habitacion_api_ocupantes, name='habitacion_api_ocupantes'),
+
 
     # URLs para Persona
     path('personas/', views.PersonaListView.as_view(), name='persona_list'),
     path('personas/nueva/', views.PersonaCreateView.as_view(), name='persona_create'),
-    path('personas/<int:pk>/', views.PersonaDetailView.as_view(), name='persona_detail'),
-    path('personas/<int:pk>/editar/', views.PersonaUpdateView.as_view(), name='persona_update'),
-    path('personas/<int:pk>/eliminar/', views.PersonaDeleteView.as_view(), name='persona_delete'),
-    
+    path('personas/<str:pk>/', views.PersonaDetailView.as_view(), name='persona_detail'),
+    path('personas/<str:pk>/editar/', views.PersonaUpdateView.as_view(), name='persona_update'),
+    path('personas/<str:pk>/eliminar/', views.PersonaDeleteView.as_view(), name='persona_delete'),
+    path('personas/inscribir/', views.inscribir_personas, name='inscribir_personas'),
+    path('importar-personas/', views.importar_personas, name='importar_personas'),
+    path('importar-personas/inspeccionar_csv/', views.inspeccionar_csv, name='inspeccionar_csv'),
+
+
     # Ruta para asociar una Escapada con un Alojamiento
     path('asociar/', views.EscapadaAlojamientoCreateView.as_view(), name='escapada_alojamiento_create'),
     path('escapada-alojamiento/lista/', views.EscapadaAlojamientoListView.as_view(), name='escapada_alojamiento_list'),
-
+    path('escapada-alojamiento/<int:pk>/', views.EscapadaAlojamientoDetailView.as_view(), name='escapada_alojamiento_detail'),
+    path('escapada-alojamiento/<int:pk>/eliminar/', views.EscapadaAlojamientoDeleteView.as_view(), name='escapada_alojamiento_delete'),
+    
 ]
 
 if settings.DEBUG:

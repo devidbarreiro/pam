@@ -9,6 +9,8 @@ media/
 staticfiles/
 mi_app/static
 
+**/docs
+
 # Environment variables
 .env
 

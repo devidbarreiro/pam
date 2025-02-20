@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Detalle del Alojamiento - {{ ea.alojamiento.nombre }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto p-8 space-y-10">
+  <!-- Encabezado -->
+  <div class="mb-8 border-b pb-4">
+    <h1 class="text-4xl font-bold text-gray-900">{{ ea.alojamiento.nombre }}</h1>
+    <p class="text-gray-600 mt-2">Detalles del alojamiento asignado para la escapada: <span class="font-semibold">{{ ea.escapada.nombre }}</span></p>
+  </div>
+
+  <!-- Detalles del Alojamiento -->
+  <div class="bg-white p-6 rounded-lg shadow border">
+    <div class="flex flex-col md:flex-row md:space-x-8">
+      <div class="md:w-1/3 flex justify-center mb-6 md:mb-0">
+        {% if ea.alojamiento.imagen %}
+          <img src="{{ ea.alojamiento.imagen.url }}" alt="{{ ea.alojamiento.nombre }}" class="w-48 h-auto rounded shadow-md">
+        {% else %}
+          <div class="w-48 h-48 bg-gray-200 flex items-center justify-center rounded">
+            <span class="text-gray-500">Sin imagen</span>
+          </div>
+        {% endif %}
+      </div>
+      <div class="md:w-2/3 space-y-4">
+        <p><strong>Dirección:</strong> {{ ea.alojamiento.direccion }}</p>
+        <p><strong>Teléfono:</strong>
+          <a href="tel:{{ ea.alojamiento.telefono }}" class="text-blue-600 hover:underline">{{ ea.alojamiento.telefono }}</a>
+        </p>
+        {% if ea.alojamiento.website %}
+          <p><strong>Sitio Web:</strong>
+            <a href="{{ ea.alojamiento.website }}" target="_blank" class="text-blue-600 hover:underline">{{ ea.alojamiento.website }}</a>
+          </p>
+        {% endif %}
+        <p><strong>Tipo de Alojamiento:</strong> {{ ea.alojamiento.get_tipo_alojamiento_display }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resumen de Habitaciones -->
+  <div class="bg-white p-6 rounded-lg shadow border">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">Habitaciones</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-blue-50 rounded-lg p-4 text-center">
+        <h3 class="text-3xl font-bold text-blue-700">{{ total_capacity }}</h3>
+        <p class="text-blue-600 mt-1">Capacidad Total</p>
+      </div>
+      <div class="bg-green-50 rounded-lg p-4 text-center">
+        <h3 class="text-3xl font-bold text-green-700">{{ occupancy }}</h3>
+        <p class="text-green-600 mt-1">Ocupación Actual</p>
+      </div>
+      <div class="bg-yellow-50 rounded-lg p-4 text-center">
+        <h3 class="text-3xl font-bold text-yellow-700">{{ available }}</h3>
+        <p class="text-yellow-600 mt-1">Plazas Disponibles</p>
+      </div>
+    </div>
+    <div class="mt-6 overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacidad</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ocupación</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {% for hab in habitaciones %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 text-sm text-gray-900">{{ hab.numero }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900 capitalize">{{ hab.get_tipo_display }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ hab.capacidad }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ hab.ocupacion_actual }}</td>
+            <td class="px-6 py-4 text-sm">
+              {% if hab.estado == 'disponible' %}
+                <span class="text-green-600 font-semibold">Disponible</span>
+              {% elif hab.estado == 'ocupada' %}
+                <span class="text-red-600 font-semibold">Ocupada</span>
+              {% else %}
+                <span class="text-yellow-600 font-semibold">Reservada</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="px-6 py-4 text-center text-gray-500">No hay habitaciones registradas.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-4 text-right">
+      <a href="{% url 'habitacion_list' %}?escapada={{ ea.escapada.pk }}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+        Ver Todas las Habitaciones
+      </a>
+    </div>
+  </div>
+
+  <!-- Sección: Inscripciones -->
+  <div class="bg-white p-6 rounded-lg shadow border">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">Inscripciones</h2>
+    {% if ea.escapada.inscripciones.all %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Persona</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pago</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {% for ins in ea.escapada.inscripciones.all %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-2 text-sm text-gray-900">{{ ins.persona.nombre }} {{ ins.persona.apellidos }}</td>
+              <td class="px-4 py-2 text-sm">
+                {% if ins.ha_pagado %}
+                  <span class="text-green-600 font-semibold">Pagado</span>
+                {% else %}
+                  <span class="text-red-600 font-semibold">Pendiente</span>
+                {% endif %}
+              </td>
+              <td class="px-4 py-2 text-sm text-gray-900">{{ ins.fecha_inscripcion|date:"d/m/Y H:i" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="bg-gray-50 p-4 rounded-lg text-center">
+        <p class="text-gray-500">No hay inscripciones registradas para esta escapada.</p>
+      </div>
+    {% endif %}
+    <div class="mt-4 text-right">
+      <a href="{% url 'escapada_inscripcion' ea.escapada.pk %}" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
+        Gestionar Inscripciones
+      </a>
+    </div>
+  </div>
+
+  <!-- Acciones Finales -->
+  <div class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+    <a href="{% url 'escapada_update' ea.escapada.pk %}" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors">
+      Editar Escapada
+    </a>
+    <a href="{% url 'escapada_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
+      Volver a la Lista
+    </a>
+  </div>
+</div>
+{% endblock %}

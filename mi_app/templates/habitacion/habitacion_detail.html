@@ -1,24 +1,293 @@
 {% extends 'base.html' %}
+{% load static %}
+
 {% block title %}Detalle de Habitación - Gestión de Escapadas{% endblock %}
+
 {% block content %}
-<div class="max-w-4xl mx-auto bg-white shadow rounded-lg p-6">
-  <h2 class="text-2xl font-bold mb-4">Detalle de Habitación</h2>
-  <div class="mb-4 space-y-2">
-    <p><strong>Número:</strong> {{ habitacion.numero }}</p>
-    <p><strong>Capacidad:</strong> {{ habitacion.capacidad }}</p>
-    <p><strong>Tipo:</strong> {{ habitacion.get_tipo_display }}</p>
-    {% if habitacion.descripcion %}
-      <p><strong>Descripción:</strong> {{ habitacion.descripcion }}</p>
-    {% endif %}
-    <p><strong>Estado:</strong> {{ habitacion.estado }}</p>
-    {% if habitacion.escapada_alojamiento %}
-      <p><strong>Escapada-Alojamiento:</strong> {{ habitacion.escapada_alojamiento }}</p>
-    {% endif %}
+<div class="max-w-4xl mx-auto bg-white shadow rounded-lg overflow-hidden">
+  <!-- Cabecera con información principal -->
+  <div class="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-8 text-white">
+    <div class="flex justify-between items-start">
+      <div>
+        <h2 class="text-3xl font-bold">Habitación {{ habitacion.numero }}</h2>
+        <p class="mt-2 flex items-center opacity-90">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+          {{ habitacion.escapada_alojamiento.alojamiento.nombre }}
+        </p>
+        <p class="mt-1 flex items-center opacity-90">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          {{ habitacion.escapada_alojamiento.escapada.nombre }}
+        </p>
+      </div>
+      
+      <div class="flex flex-col items-end">
+        <span class="px-3 py-1 rounded-full text-sm font-medium
+                    {% if habitacion.estado == 'disponible' %}bg-green-200 text-green-800
+                    {% elif habitacion.estado == 'ocupada' %}bg-red-200 text-red-800
+                    {% else %}bg-yellow-200 text-yellow-800{% endif %}">
+          {{ habitacion.get_estado_display }}
+        </span>
+        <div class="flex items-center mt-3">
+          <span class="bg-white/20 rounded-lg px-3 py-1.5 flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <span class="font-bold">{{ habitacion.persona_set.count }}</span>
+            <span class="mx-1">/</span>
+            <span>{{ habitacion.capacidad }}</span>
+          </span>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="flex space-x-4">
-    <a href="{% url 'habitacion_update' habitacion.pk %}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Editar</a>
-    <a href="{% url 'habitacion_delete' habitacion.pk %}" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Eliminar</a>
-    <a href="{% url 'habitacion_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Volver a la Lista</a>
+
+  <!-- Contenido principal -->
+  <div class="p-6">
+    <!-- Resumen en tarjetas -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div class="bg-blue-50 rounded-lg p-4 border border-blue-100">
+        <h3 class="text-sm font-medium text-blue-600 mb-1">Tipo</h3>
+        <p class="text-lg font-semibold">{{ habitacion.get_tipo_display }}</p>
+      </div>
+      
+      <div class="bg-purple-50 rounded-lg p-4 border border-purple-100">
+        <h3 class="text-sm font-medium text-purple-600 mb-1">Capacidad</h3>
+        <p class="text-lg font-semibold">{{ habitacion.capacidad }} personas</p>
+      </div>
+      
+      <div class="bg-amber-50 rounded-lg p-4 border border-amber-100">
+        <h3 class="text-sm font-medium text-amber-600 mb-1">Ocupación</h3>
+        <p class="text-lg font-semibold">
+          {{ habitacion.persona_set.count }} / {{ habitacion.capacidad }}
+          <span class="text-sm font-normal text-amber-600">
+            {% if habitacion.capacidad > 0 %}
+              {% widthratio habitacion.persona_set.count habitacion.capacidad 100 %}%
+            {% else %}
+              0%
+            {% endif %}
+          </span>
+        </p>
+      </div>
+    </div>
+    
+    {% if habitacion.descripcion %}
+      <div class="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+        <h3 class="text-base font-semibold mb-2">Descripción</h3>
+        <p class="text-gray-700">{{ habitacion.descripcion }}</p>
+      </div>
+    {% endif %}
+    
+    <!-- Personas en la habitación -->
+    <div class="mt-8">
+      <h3 class="text-xl font-bold mb-4 flex items-center">
+        <svg class="w-6 h-6 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+        Personas alojadas
+      </h3>
+      
+      {% if habitacion.persona_set.count > 0 %}
+        <div class="overflow-hidden border border-gray-200 rounded-lg">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DNI</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {% for persona in habitacion.persona_set.all %}
+                <tr class="{% cycle '' 'bg-gray-50' %}">
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                      <div class="flex-shrink-0 h-10 w-10">
+                        <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500 font-semibold">
+                          {{ persona.nombre|slice:":1" }}
+                        </div>
+                      </div>
+                      <div class="ml-4">
+                        <div class="text-sm font-medium text-gray-900">{{ persona.nombre }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">{{ persona.dni }}</div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">{{ persona.email }}</div>
+                    {% if persona.telefono %}
+                      <div class="text-sm text-gray-500">{{ persona.telefono }}</div>
+                    {% endif %}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    {% for inscripcion in persona.inscripciones.all %}
+                      {% if inscripcion.escapada == habitacion.escapada_alojamiento.escapada %}
+                        <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                              {% if inscripcion.ha_pagado %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                          {{ inscripcion.ha_pagado|yesno:"Pagado,Pendiente" }}
+                        </span>
+                      {% endif %}
+                    {% endfor %}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <a href="{% url 'persona_detail' persona.id %}" class="text-indigo-600 hover:text-indigo-900 mr-3">Ver</a>
+                    <a href="#" onclick="confirmarDesalojar({{ persona.id }}, '{{ persona.nombre }}')" class="text-red-600 hover:text-red-900">Desalojar</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Capacidad restante -->
+        {% with plazas_disponibles=habitacion.capacidad|add:"-"|add:habitacion.persona_set.count %}
+          {% if plazas_disponibles > 0 %}
+            <div class="mt-4 bg-green-50 border-l-4 border-green-400 p-4">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <div class="ml-3">
+                  <p class="text-sm text-green-700">
+                    Quedan <span class="font-medium">{{ plazas_disponibles }}</span> plazas disponibles en esta habitación.
+                  </p>
+                </div>
+              </div>
+            </div>
+          {% endif %}
+        {% endwith %}
+      {% else %}
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <h3 class="mt-2 text-sm font-medium text-gray-900">No hay personas alojadas</h3>
+          <p class="mt-1 text-sm text-gray-500">Esta habitación está vacía actualmente.</p>
+          <div class="mt-6">
+            <a href="{% url 'persona_list' %}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+              Asignar personas
+            </a>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  
+  <!-- Información adicional -->
+  <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <h4 class="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Alojamiento</h4>
+        <p class="text-gray-800">{{ habitacion.escapada_alojamiento.alojamiento.nombre }}</p>
+        <p class="text-sm text-gray-600">{{ habitacion.escapada_alojamiento.alojamiento.direccion|truncatechars:50 }}</p>
+      </div>
+      
+      <div>
+        <h4 class="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Escapada</h4>
+        <p class="text-gray-800">{{ habitacion.escapada_alojamiento.escapada.nombre }}</p>
+        <p class="text-sm text-gray-600">
+          {% if habitacion.escapada_alojamiento.escapada.fecha_ini and habitacion.escapada_alojamiento.escapada.fecha_fin %}
+            {{ habitacion.escapada_alojamiento.escapada.fecha_ini|date:"d/m/Y" }} - {{ habitacion.escapada_alojamiento.escapada.fecha_fin|date:"d/m/Y" }}
+          {% endif %}
+        </p>
+      </div>
+      
+      <div>
+        <h4 class="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Última actualización</h4>
+        <p class="text-gray-800">{{ habitacion.estado|capfirst }}</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Botones de Acción -->
+  <div class="px-6 py-4 bg-gray-100 border-t border-gray-200 flex flex-wrap justify-between items-center">
+    <div class="flex flex-wrap gap-4">
+      <a href="{% url 'habitacion_update' habitacion.pk %}" 
+         class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        Editar
+      </a>
+      <a href="{% url 'habitacion_delete' habitacion.pk %}" 
+         class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+        Eliminar
+      </a>
+    </div>
+    
+    <div>
+      <a href="{% url 'habitacion_list' %}" 
+         class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Volver a la Lista
+      </a>
+    </div>
   </div>
 </div>
+
+<!-- Modal de confirmación para desalojar (oculto por defecto) -->
+<div id="modalDesalojar" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+    <div class="px-6 py-4 border-b">
+      <h3 class="text-lg font-medium text-gray-900">Confirmar desalojo</h3>
+    </div>
+    <div class="px-6 py-4">
+      <p class="text-gray-700">
+        ¿Estás seguro de que deseas desalojar a <span id="nombrePersona" class="font-semibold"></span> de esta habitación?
+      </p>
+      <p class="mt-2 text-sm text-gray-500">
+        Esta acción no eliminará a la persona del sistema, solo la desvinculará de esta habitación.
+      </p>
+    </div>
+    <div class="px-6 py-3 bg-gray-50 flex justify-end space-x-3 rounded-b-lg">
+      <button type="button" onclick="cerrarModal()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">
+        Cancelar
+      </button>
+      <form id="formDesalojar" method="post" action="">
+        {% csrf_token %}
+        <input type="hidden" name="persona_id" id="personaId">
+        <input type="hidden" name="action" value="desalojar">
+        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+          Desalojar
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function confirmarDesalojar(personaId, nombre) {
+    document.getElementById('nombrePersona').textContent = nombre;
+    document.getElementById('personaId').value = personaId;
+    document.getElementById('modalDesalojar').classList.remove('hidden');
+  }
+  
+  function cerrarModal() {
+    document.getElementById('modalDesalojar').classList.add('hidden');
+  }
+  
+  // Cerrar modal al hacer clic fuera de él
+  document.getElementById('modalDesalojar').addEventListener('click', function(e) {
+    if (e.target === this) {
+      cerrarModal();
+    }
+  });
+</script>
 {% endblock %}

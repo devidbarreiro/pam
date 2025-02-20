@@ -3,82 +3,354 @@
 
 {% block title %}Detalle de Escapada - {{ escapada.nombre }}{% endblock %}
 
+{% block extra_js %}
+<script>
+  // Función para mostrar el modal de confirmación de eliminación
+  function confirmDelete(deleteUrl) {
+    const modal = document.getElementById('deleteModal');
+    const deleteForm = document.getElementById('deleteForm');
+    deleteForm.action = deleteUrl;
+    modal.classList.remove('hidden');
+  }
+
+  // Función para cerrar el modal
+  function closeDeleteModal() {
+    const modal = document.getElementById('deleteModal');
+    modal.classList.add('hidden');
+  }
+
+  // Cerrar modal al hacer clic fuera de él
+  window.onclick = function(event) {
+    const modal = document.getElementById('deleteModal');
+    if (event.target === modal) {
+      closeDeleteModal();
+    }
+  };
+
+  // Cerrar modal con la tecla ESC
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      closeDeleteModal();
+    }
+  });
+</script>
+{% endblock %}
+
 {% block content %}
-<div class="max-w-4xl mx-auto bg-white shadow rounded-lg p-6">
-  <h2 class="text-2xl font-bold mb-4">Detalle de Escapada: {{ escapada.nombre }}</h2>
-  
-  <!-- Detalles de la escapada -->
-  <div class="mb-4 space-y-2">
-    <p><strong>Tipo:</strong> {{ escapada.get_tipo_display }}</p>
-    <p><strong>Plazas:</strong> {{ escapada.num_plazas }}</p>
-    <p><strong>Inscritos:</strong> {{ escapada.num_inscritos }}</p>
-    <p><strong>Fechas:</strong> {{ escapada.fecha_ini }} a {{ escapada.fecha_fin }}</p>
-    <p><strong>Lugar:</strong> {{ escapada.lugar }}</p>
-    <p><strong>Estado:</strong> {{ escapada.estado }}</p>
+<div class="max-w-5xl mx-auto p-8 space-y-10">
+
+  <!-- Encabezado Principal -->
+  <header class="border-b pb-4">
+    <h1 class="text-4xl font-bold text-gray-900">{{ escapada.nombre }}</h1>
     {% if escapada.descripcion %}
-      <p><strong>Descripción:</strong> {{ escapada.descripcion }}</p>
+      <p class="text-gray-600 mt-2">{{ escapada.descripcion }}</p>
     {% endif %}
+  </header>
 
-    <!-- Verificar si existe escapada.imagen -->
-    {% if escapada.imagen %}
-      <div class="mt-4">
-        <img src="{{ escapada.imagen.url }}" alt="{{ escapada.nombre }}" class="w-full rounded">
-      </div>
-    {% else %}
-      <p class="mt-4 text-gray-500">No hay imagen para esta escapada.</p>
-    {% endif %}
-  </div>
-
-  <!-- Botones de Acción -->
-  <div class="flex space-x-4">
-    <a href="{% url 'escapada_update' escapada.pk %}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Editar</a>
-    <a href="{% url 'escapada_delete' escapada.pk %}" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Eliminar</a>
-    <a href="{% url 'escapada_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Volver a la Lista</a>
-  </div>
-
-  <!-- Mostrar Alojamientos -->
-  <div class="mt-6">
-    <h3 class="text-xl font-semibold">Alojamientos Asignados</h3>
-    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {% for alojamiento_rel in escapada.escapadas_alojamiento.all %}
-        {% if alojamiento_rel.alojamiento.imagen %}
-          <!-- Si existe imagen del alojamiento -->
-          <div class="bg-cover bg-center rounded-lg shadow-lg relative" 
-               style="background-image: url('{{ alojamiento_rel.alojamiento.imagen.url }}'); height: 200px;">
-            <div class="bg-black bg-opacity-50 text-white p-4 absolute bottom-0 left-0 w-full">
-              <h4 class="font-bold">{{ alojamiento_rel.alojamiento.nombre }}</h4>
-              <p>{{ alojamiento_rel.alojamiento.direccion }}</p>
-            </div>
-          </div>
+  <!-- Sección: Detalles de la Escapada -->
+  <section class="bg-white p-6 rounded-lg shadow border">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Detalles de la Escapada</h2>
+    <div class="flex flex-col md:flex-row md:space-x-8">
+      <!-- Imagen -->
+      <div class="md:w-1/3 flex justify-center mb-6 md:mb-0">
+        {% if escapada.imagen %}
+          <img src="{{ escapada.imagen.url }}" alt="{{ escapada.nombre }}" class="w-40 h-40 object-cover rounded shadow-md">
         {% else %}
-          <!-- Si no existe imagen, muestra un fondo gris o imagen por defecto -->
-          <div class="bg-gray-200 rounded-lg shadow-lg relative flex items-center justify-center" style="height:200px;">
-            <span class="text-gray-700 font-semibold">Sin imagen</span>
-            <div class="bg-black bg-opacity-30 text-white p-4 absolute bottom-0 left-0 w-full">
-              <h4 class="font-bold">{{ alojamiento_rel.alojamiento.nombre }}</h4>
-              <p>{{ alojamiento_rel.alojamiento.direccion }}</p>
-            </div>
+          <div class="w-40 h-40 bg-gray-200 flex items-center justify-center rounded">
+            <span class="text-gray-500">Sin imagen</span>
           </div>
         {% endif %}
-      {% empty %}
-        <div class="bg-white p-4 rounded-lg shadow-lg text-center">
-          <p>No hay alojamientos asignados. Haz clic en el botón para añadir uno.</p>
+      </div>
+      <!-- Información -->
+      <div class="md:w-2/3 space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <p><span class="font-semibold">Tipo:</span> {{ escapada.get_tipo_display }}</p>
+            <p><span class="font-semibold">Plazas:</span> {{ escapada.num_plazas|default:"-" }}</p>
+            <p><span class="font-semibold">Inscritos:</span> {{ escapada.num_inscritos|default:"-" }}</p>
+          </div>
+          <div>
+            <p>
+              <span class="font-semibold">Fechas:</span>
+              {% if escapada.fecha_ini %}{{ escapada.fecha_ini|date:"d/m/Y" }}{% else %}-{% endif %} a
+              {% if escapada.fecha_fin %}{{ escapada.fecha_fin|date:"d/m/Y" }}{% else %}-{% endif %}
+            </p>
+            <p><span class="font-semibold">Lugar:</span> {{ escapada.lugar|default:"-" }}</p>
+            <p>
+              <span class="font-semibold">Estado:</span>
+              <span class="capitalize {% if escapada.estado == 'abierta' %}text-green-600{% elif escapada.estado == 'cerrada' %}text-yellow-600{% else %}text-red-600{% endif %}">
+                {{ escapada.estado }}
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sección: Alojamientos y Habitaciones agrupadas -->
+  <section class="bg-white p-6 rounded-lg shadow border">
+    <div class="flex justify-between items-center border-b pb-2 mb-4">
+      <h2 class="text-2xl font-bold text-gray-800">Habitaciones por Alojamientos y Tipo</h2>
+      {% if escapada.escapadas_alojamiento.exists %}
+        <a href="{% url 'habitacion_create' %}?escapada={{ escapada.pk }}" 
+          class="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">
+          <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Nueva Habitación
+        </a>
+      {% endif %}
+    </div>
+    
+    {% if grouped_rooms %}
+      {% for alojamiento_id, info in grouped_rooms.items %}
+        <div class="mb-6 p-4 border rounded-lg shadow-sm">
+          <div class="flex items-center justify-between border-b pb-2 mb-3">
+            <h3 class="text-xl font-bold text-gray-800">{{ info.alojamiento.nombre }}</h3>
+            <div class="flex space-x-2">
+              {% for ea in escapada.escapadas_alojamiento.all %}
+                {% if ea.alojamiento.id == info.alojamiento.id %}
+                  <a href="{% url 'habitacion_create_for_alojamiento' ea_id=ea.id %}"
+                     class="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition">
+                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Nueva Habitación
+                  </a>
+                {% endif %}
+              {% endfor %}
+              <!-- Botón de acción: Borrar asignación de alojamiento con JS confirm -->
+              <button type="button" onclick="confirmDelete('{% url 'escapada_alojamiento_delete' info.alojamiento.pk %}', 'la asignación de {{ info.alojamiento.nombre }}')" 
+                     class="text-red-600 hover:text-red-800 text-sm px-3 py-2 border border-red-300 rounded-lg">
+                <i class="fas fa-trash-alt mr-1"></i> Borrar Asignación
+              </button>
+            </div>
+          </div>
+          {% for tipo, rooms in info.rooms_by_type.items %}
+            <div class="mb-4">
+              <h4 class="text-lg font-semibold text-gray-700">Tipo: {{ tipo|capfirst }}</h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-2">
+                {% for room in rooms %}
+                  <div class="p-4 border rounded-lg hover:shadow-md transition-shadow bg-gray-50">
+                    <div class="flex justify-between items-center mb-2">
+                      <span class="text-lg font-bold">Hab. {{ room.numero|default:"-" }}</span>
+                      <span class="text-xs font-medium px-2 py-1 rounded-full
+                        {% if room.estado == 'disponible' %}bg-green-100 text-green-800{% elif room.estado == 'reservada' %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        {{ room.get_estado_display }}
+                      </span>
+                    </div>
+                    <p class="text-sm text-gray-600">Capacidad: {{ room.capacidad }}</p>
+                    <p class="text-xs text-gray-500 mt-1">Núm. ficticio: {{ room.numero_ficticio|default:"-" }}</p>
+                    
+                    <!-- Información de ocupantes -->
+                    <div class="mt-2 text-sm">
+                      <p>Ocupación: {{ room.ocupacion_actual }}/{{ room.capacidad }}</p>
+                      {% if room.ocupantes %}
+                        <details class="mt-1">
+                          <summary class="cursor-pointer text-blue-600 hover:text-blue-800">Ver ocupantes</summary>
+                          <ul class="pl-4 mt-1 text-xs">
+                            {% for ocupante in room.ocupantes %}
+                              <li>{{ ocupante.nombre }} {{ ocupante.apellidos }}</li>
+                            {% endfor %}
+                          </ul>
+                        </details>
+                      {% endif %}
+                    </div>
+                    
+                    <!-- Botones de acciones corregidos -->
+                    <div class="mt-3 flex justify-between">
+                      <a href="{% url 'habitacion_update' room.pk %}" class="text-blue-500 hover:text-blue-700 text-sm">
+                        <i class="fas fa-edit"></i> Editar
+                      </a>
+                      <button type="button" onclick="confirmDelete('{% url 'habitacion_delete' room.pk %}')"
+                        class="flex items-center justify-center w-8 h-8 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                      </button>
+
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endfor %}
         </div>
       {% endfor %}
+    {% else %}
+      <div class="bg-gray-50 p-8 rounded-lg text-center">
+        <p class="text-gray-500 mb-4">No hay habitaciones registradas para esta escapada.</p>
+        <a href="{% url 'alojamiento_assign' escapada.pk %}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+          Asignar Alojamiento
+        </a>
+      </div>
+    {% endif %}
+  </section>
 
-      <!-- Botón para agregar más alojamientos -->
-      <a href="{% url 'escapada_alojamiento_select' escapada.pk %}"
-         class="bg-blue-600 text-white rounded-lg shadow-lg flex justify-center items-center h-48 hover:bg-blue-700">
-        <span class="text-4xl">+</span>
+  <!-- Sección: Resumen de Habitaciones -->
+  <section class="bg-white p-6 rounded-lg shadow border">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Resumen de Ocupación</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-blue-50 rounded-lg p-4 text-center">
+        <h3 class="text-3xl font-bold text-blue-700">{{ total_capacity }}</h3>
+        <p class="text-blue-600 mt-1">Capacidad Total</p>
+      </div>
+      <div class="bg-green-50 rounded-lg p-4 text-center">
+        <h3 class="text-3xl font-bold text-green-700">{{ occupancy }}</h3>
+        <p class="text-green-600 mt-1">Ocupación Actual</p>
+      </div>
+      <div class="bg-yellow-50 rounded-lg p-4 text-center">
+        <h3 class="text-3xl font-bold text-yellow-700">{{ available }}</h3>
+        <p class="text-yellow-600 mt-1">Plazas Disponibles</p>
+      </div>
+    </div>
+    <div class="mt-4 text-right">
+      <a href="{% url 'habitacion_list' %}?escapada={{ escapada.pk }}" class="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+        Ver Todas las Habitaciones
       </a>
+    </div>
+  </section>
 
-      <a href="{% url 'escapada_inscripcion' escapada.pk %}"
-        class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-      >
-        Inscribirme / Seleccionar Habitación
-      </a>
+  <!-- Sección: Inscripciones con Paginación -->
+  <section class="bg-white p-6 rounded-lg shadow border">
+    <div class="flex justify-between items-center border-b pb-2 mb-4">
+      <h2 class="text-2xl font-bold text-gray-800">Inscripciones</h2>
+      <!-- Nueva Inscripción button removed as requested -->
+    </div>
+    
+    {% if inscripciones_paginated %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Persona</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DNI</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pago</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Habitación</th>
+              <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {% for ins in inscripciones_paginated %}
+              <tr class="hover:bg-gray-50 transition-colors">
+                <td class="px-4 py-2 text-sm text-gray-900">{{ ins.persona.nombre }} {{ ins.persona.apellidos }}</td>
+                <td class="px-4 py-2 text-sm text-gray-700">{{ ins.persona.dni }}</td>
+                <td class="px-4 py-2 text-sm">
+                  {% if ins.ha_pagado %}
+                    <span class="text-green-600 font-semibold">Pagado ({{ ins.pagado }}€)</span>
+                  {% else %}
+                    <span class="text-red-600 font-semibold">
+                      {% if ins.pendiente|floatformat > 0 %}
+                        Pendiente ({{ ins.pendiente }}€)
+                      {% else %}
+                        Pendiente
+                      {% endif %}
+                    </span>
+                  {% endif %}
+                </td>
+                <td class="px-4 py-2 text-sm text-gray-900">{{ ins.fecha_inscripcion|date:"d/m/Y H:i" }}</td>
+                <td class="px-4 py-2 text-sm">
+                  {% with hab=ins.persona.reservahabitacion_set.first.habitacion %}
+                    {% if hab %}
+                      <span class="bg-gray-100 px-2 py-1 rounded text-xs">
+                        {{ hab.numero_ficticio|default:hab.numero }} 
+                        ({{ hab.get_tipo_display }})
+                      </span>
+                    {% else %}
+                      <span class="text-orange-500">Sin asignar</span>
+                    {% endif %}
+                  {% endwith %}
+                </td>
+                <td class="px-4 py-2 text-sm space-x-2">
 
+                  <!-- Este código falta implementarlo
+                    <a 'inscripcion _update' ins.pk %}" class="text-blue-500 hover:text-blue-700">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  <button type="button" onclick="confirmDelete('{incripcion _delete' ins.pk %}', 'la inscripción de {{ ins.persona.nombre }}')" 
+                         class="text-red-500 hover:text-red-700">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>-->
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <!-- Controles de paginación -->
+      <div class="mt-4 flex justify-center">
+        {% if inscripciones_paginated.has_previous %}
+          <a href="?page={{ inscripciones_paginated.previous_page_number }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-l hover:bg-gray-300">Anterior</a>
+        {% endif %}
+        <span class="px-4 py-2 bg-gray-100 text-gray-700">
+          Página {{ inscripciones_paginated.number }} de {{ inscripciones_paginated.paginator.num_pages }}
+        </span>
+        {% if inscripciones_paginated.has_next %}
+          <a href="?page={{ inscripciones_paginated.next_page_number }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-r hover:bg-gray-300">Siguiente</a>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="bg-gray-50 p-4 rounded-lg text-center">
+        <p class="text-gray-500">No hay inscripciones registradas para esta escapada.</p>
+      </div>
+    {% endif %}
+  </section>
+
+
+  <!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="hidden fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+      <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+        <div class="sm:flex sm:items-start">
+          <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+            <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.938 20h10.124c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L5.206 17c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+          </div>
+          <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
+              Eliminar Habitación
+            </h3>
+            <div class="mt-2">
+              <p class="text-sm text-gray-500">
+                ¿Estás seguro que deseas eliminar esta habitación? Esta acción no se puede deshacer.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+        <form id="deleteForm" method="POST">
+          {% csrf_token %}
+          <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
+            Eliminar
+          </button>
+        </form>
+        <button type="button" onclick="closeDeleteModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+          Cancelar
+        </button>
+      </div>
     </div>
   </div>
+</div>
+
+
+  <!-- Sección: Acciones Finales -->
+  <footer class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+    <a href="{% url 'escapada_update' escapada.pk %}" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors">
+      Editar Escapada
+    </a>
+    <a href="{% url 'escapada_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
+      Volver a la Lista
+    </a>
+  </footer>
+
 </div>
 {% endblock %}
