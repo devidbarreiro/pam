@@ -127,8 +127,7 @@ class EscapadaDetailView(DetailView):
                     'rooms_by_type': {}
                 }
             for room in ea.habitaciones.all():
-                # Agrupar por tipo (puedes usar room.capacidad en vez de room.tipo si lo prefieres)
-                group_key = room.tipo  # o: group_key = room.capacidad
+                group_key = room.tipo  # O puedes usar room.capacidad
                 if group_key not in grouped_rooms[alojamiento.pk]['rooms_by_type']:
                     grouped_rooms[alojamiento.pk]['rooms_by_type'][group_key] = []
                 grouped_rooms[alojamiento.pk]['rooms_by_type'][group_key].append(room)
@@ -144,6 +143,28 @@ class EscapadaDetailView(DetailView):
         context['total_capacity'] = total_capacity
         context['occupancy'] = occupancy
         context['available'] = total_capacity - occupancy
+
+        # --- Filtro de búsqueda en inscripciones ---
+        q = self.request.GET.get('q', '')
+        if q:
+            inscripciones_list = self.object.inscripciones.filter(
+                Q(persona__nombre__icontains=q) |
+                Q(persona__apellidos__icontains=q) |
+                Q(persona__dni__icontains=q)
+            ).order_by('-fecha_inscripcion')
+        else:
+            inscripciones_list = self.object.inscripciones.all().order_by('-fecha_inscripcion')
+
+        # --- Añadir mensaje de acceso según tipo_alojamiento_deseado ---
+        # Para cada inscripción se asigna un mensaje en función de su campo 'tipo_alojamiento_deseado'
+        for ins in inscripciones_list:
+            ta = ins.tipo_alojamiento_deseado or ""
+            if "Sin alojamiento" in ta:
+                ins.access_message = "Sin alojamiento..."
+            elif "familia" in ta.lower() or "habitación familia" in ta.lower():
+                ins.access_message = "No te preocupes familia, nosotros nos ocupamos de reservarte la mejor habitación 😉"
+            else:
+                ins.access_message = ""
 
         # --- Paginación de Inscripciones ---
         inscripciones_list = self.object.inscripciones.all().order_by('-fecha_inscripcion')
@@ -1117,6 +1138,23 @@ class InscribirPersonasView(View):
             messages.error(request, f"Se produjo un error inesperado: {str(e)}")
             return redirect('persona_list')
 
+class InscripcionUpdateView(UpdateView):
+    model = Inscripcion
+    fields = ['ha_pagado', 'tipo_habitacion_preferida', 'importe_pendiente', 'a_pagar', 'pagado', 'pendiente', 'tipo_alojamiento_deseado', 'num_familiares']
+    template_name = 'inscripcion/inscripcion_update.html'
+    
+    def get_success_url(self):
+        return reverse_lazy('escapada_detail', kwargs={'pk': self.object.escapada.pk})
+ 
+class InscripcionDeleteView(DeleteView):
+    model = Inscripcion
+    template_name = 'inscripcion/inscripcion_confirm_delete.html'
+
+    def get_success_url(self):
+        messages.success(self.request, "La inscripción se eliminó correctamente.")
+        # Redirige a la página de detalles de la escapada a la que pertenece la inscripción
+        return reverse('escapada_detail', kwargs={'pk': self.object.escapada.pk})
+    
 logger = logging.getLogger(__name__)
 
 class CSVImportError(Exception):
@@ -2067,14 +2105,14 @@ class EscapadaInscripcionView(View):
                 if inscripcion.tipo_alojamiento_deseado:
                     tipo = inscripcion.tipo_alojamiento_deseado.lower()
                     if "sin alojamiento" in tipo:
-                        messages.info(request, "Sin alojamiento: No es necesario seleccionar habitación.")
+                        #messages.info(request, "Sin alojamiento: No es necesario seleccionar habitación.")
                         return render(request, self.template_name, {
                             'escapada': escapada,
                             'persona': persona,
                             'sin_alojamiento': True
                         })
                     elif "familia" in tipo:
-                        messages.info(request, "No te preocupes familia, nosotros nos ocupamos de reservarte la mejor habitación 😉")
+                        #messages.info(request, "No te preocupes familia, nosotros nos ocupamos de reservarte la mejor habitación 😉")
                         return render(request, self.template_name, {
                             'escapada': escapada,
                             'persona': persona,
@@ -2816,3 +2854,4 @@ def asignar_habitacion_checkin(request):
         messages.error(request, f'Error inesperado: {str(e)}')
     
     return redirect('checkin_list', escapada_id=inscripcion.escapada.id)
+

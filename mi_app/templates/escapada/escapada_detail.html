@@ -1,15 +1,23 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load humanize %}
 
 {% block title %}Detalle de Escapada - {{ escapada.nombre }}{% endblock %}
 
 {% block extra_js %}
+<!-- Cargar Font Awesome para iconos -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
 <script>
   // Función para mostrar el modal de confirmación de eliminación
-  function confirmDelete(deleteUrl) {
+  function openDeleteModal(deleteUrl, itemName) {
     const modal = document.getElementById('deleteModal');
     const deleteForm = document.getElementById('deleteForm');
+    const modalTitle = document.getElementById('deleteModalTitle');
+    const modalMessage = document.getElementById('deleteModalMessage');
     deleteForm.action = deleteUrl;
+    modalTitle.textContent = "Eliminar Inscripción";
+    modalMessage.textContent = "¿Estás seguro de eliminar " + itemName + "? Esta acción no se puede deshacer.";
     modal.classList.remove('hidden');
   }
 
@@ -33,12 +41,70 @@
       closeDeleteModal();
     }
   });
+
+  // Buscador dinámico para las inscripciones
+  document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.querySelector('input[name="q"]');
+    if (searchInput) {
+      searchInput.addEventListener('input', function() {
+        const filter = this.value.toLowerCase();
+        const rows = document.querySelectorAll('table tbody tr');
+        rows.forEach(row => {
+          // Concatenar el contenido de las celdas de Persona y DNI
+          const personaText = row.querySelector('td:nth-child(1)').textContent.toLowerCase();
+          const dniText = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+          if (personaText.includes(filter) || dniText.includes(filter)) {
+            row.style.display = "";
+          } else {
+            row.style.display = "none";
+          }
+        });
+      });
+    }
+  });
+
+  // Función para alternar la visualización de grupos de capacidad
+  function toggleCapacidadGroup(id) {
+    const group = document.getElementById(id);
+    const icon = document.getElementById('icon-' + id);
+    if (group.classList.contains('hidden')) {
+      group.classList.remove('hidden');
+      group.classList.add('block');
+      icon.classList.remove('rotate-180');
+      const height = group.scrollHeight;
+      group.style.maxHeight = height + 'px';
+      setTimeout(() => { group.style.maxHeight = ''; }, 300);
+    } else {
+      group.style.maxHeight = group.scrollHeight + 'px';
+      void group.offsetWidth;
+      group.style.maxHeight = '0px';
+      icon.classList.add('rotate-180');
+      setTimeout(() => {
+        group.classList.remove('block');
+        group.classList.add('hidden');
+        group.style.maxHeight = '';
+      }, 300);
+    }
+  }
+
+  // Inicializar los grupos de capacidad como ocultos
+  document.addEventListener('DOMContentLoaded', function() {
+    const capacidadGroups = document.querySelectorAll('[id^="cap-"]');
+    capacidadGroups.forEach(group => {
+      group.classList.add('hidden');
+      group.style.maxHeight = '0px';
+      const iconId = 'icon-' + group.id;
+      const icon = document.getElementById(iconId);
+      if (icon) {
+        icon.classList.add('rotate-180');
+      }
+    });
+  });
 </script>
 {% endblock %}
 
 {% block content %}
 <div class="max-w-5xl mx-auto p-8 space-y-10">
-
   <!-- Encabezado Principal -->
   <header class="border-b pb-4">
     <h1 class="text-4xl font-bold text-gray-900">{{ escapada.nombre }}</h1>
@@ -88,11 +154,30 @@
     </div>
   </section>
 
+  <!-- Bloque condicional para tipo_alojamiento_deseado -->
+  {% if sin_alojamiento %}
+    <div class="bg-blue-50 p-4 rounded-lg mb-5">
+      <p class="text-blue-800 font-bold">
+        Sin alojamiento: No es necesario seleccionar habitación.
+      </p>
+    </div>
+  {% elif familia %}
+    <div class="bg-green-50 p-4 rounded-lg mb-5">
+      <p class="text-green-800 font-bold">
+        No te preocupes familia, nosotros nos ocupamos de reservarte la mejor habitación 😉
+      </p>
+    </div>
+  {% endif %}
+
   <!-- Sección: Inscripciones con Paginación -->
   <section class="bg-white p-6 rounded-lg shadow border">
     <div class="flex justify-between items-center border-b pb-2 mb-4">
       <h2 class="text-2xl font-bold text-gray-800">Inscripciones</h2>
-      <!-- Nueva Inscripción button removed as requested -->
+      <!-- Buscador dinámico (envía el parámetro 'q' vía GET) -->
+      <form method="get" action="" class="flex">
+        <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Buscar por nombre, apellidos o DNI" class="px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">Buscar</button>
+      </form>
     </div>
     
     {% if inscripciones_paginated %}
@@ -131,8 +216,7 @@
                   {% with hab=ins.persona.reservahabitacion_set.first.habitacion %}
                     {% if hab %}
                       <span class="bg-gray-100 px-2 py-1 rounded text-xs">
-                        {{ hab.numero_ficticio|default:hab.numero }} 
-                        ({{ hab.get_tipo_display }})
+                        {{ hab.numero_ficticio|default:hab.numero }} ({{ hab.get_tipo_display }})
                       </span>
                     {% else %}
                       <span class="text-orange-500">Sin asignar</span>
@@ -140,15 +224,14 @@
                   {% endwith %}
                 </td>
                 <td class="px-4 py-2 text-sm space-x-2">
-
-                  <!-- Este código falta implementarlo
-                    <a 'inscripcion _update' ins.pk %}" class="text-blue-500 hover:text-blue-700">
+                  <!-- Botón para modificar la inscripción -->
+                  <a href="{% url 'inscripcion_update' ins.pk %}" class="text-blue-500 hover:text-blue-700" title="Modificar inscripción">
                     <i class="fas fa-edit"></i>
                   </a>
-                  <button type="button" onclick="confirmDelete('{incripcion _delete' ins.pk %}', 'la inscripción de {{ ins.persona.nombre }}')" 
-                         class="text-red-500 hover:text-red-700">
+                  <!-- Botón para eliminar la inscripción -->
+                  <button type="button" onclick="openDeleteModal('{% url 'inscripcion_delete' ins.pk %}', 'la inscripción de {{ ins.persona.nombre }}')" class="text-red-500 hover:text-red-700" title="Eliminar inscripción">
                     <i class="fas fa-trash-alt"></i>
-                  </button>-->
+                  </button>
                 </td>
               </tr>
             {% endfor %}
@@ -158,13 +241,13 @@
       <!-- Controles de paginación -->
       <div class="mt-4 flex justify-center">
         {% if inscripciones_paginated.has_previous %}
-          <a href="?page={{ inscripciones_paginated.previous_page_number }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-l hover:bg-gray-300">Anterior</a>
+          <a href="?page={{ inscripciones_paginated.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-l hover:bg-gray-300">Anterior</a>
         {% endif %}
         <span class="px-4 py-2 bg-gray-100 text-gray-700">
           Página {{ inscripciones_paginated.number }} de {{ inscripciones_paginated.paginator.num_pages }}
         </span>
         {% if inscripciones_paginated.has_next %}
-          <a href="?page={{ inscripciones_paginated.next_page_number }}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-r hover:bg-gray-300">Siguiente</a>
+          <a href="?page={{ inscripciones_paginated.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-r hover:bg-gray-300">Siguiente</a>
         {% endif %}
       </div>
     {% else %}
@@ -212,8 +295,7 @@
             <div class="flex space-x-2">
               {% for ea in escapada.escapadas_alojamiento.all %}
                 {% if ea.alojamiento.id == info.alojamiento.id %}
-                  <a href="{% url 'habitacion_create_for_alojamiento' ea_id=ea.id %}"
-                     class="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition">
+                  <a href="{% url 'habitacion_create_for_alojamiento' ea_id=ea.id %}" class="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition">
                     <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
@@ -221,9 +303,7 @@
                   </a>
                 {% endif %}
               {% endfor %}
-              <!-- Botón de acción: Borrar asignación de alojamiento con JS confirm -->
-              <button type="button" onclick="confirmDelete('{% url 'escapada_alojamiento_delete' info.alojamiento.pk %}', 'la asignación de {{ info.alojamiento.nombre }}')" 
-                     class="text-red-600 hover:text-red-800 text-sm px-3 py-2 border border-red-300 rounded-lg">
+              <button type="button" onclick="confirmDelete('{% url 'escapada_alojamiento_delete' info.alojamiento.pk %}', 'la asignación de {{ info.alojamiento.nombre }}')" class="text-red-600 hover:text-red-800 text-sm px-3 py-2 border border-red-300 rounded-lg">
                 <i class="fas fa-trash-alt mr-1"></i> Borrar Asignación
               </button>
             </div>
@@ -231,14 +311,10 @@
           {% for tipo, rooms in info.rooms_by_type.items %}
             <div class="mb-4">
               <h4 class="text-lg font-semibold text-gray-700">Tipo: {{ tipo|capfirst }}</h4>
-              
               {% regroup rooms by capacidad as capacidad_groups %}
-              
               {% for capacidad_group in capacidad_groups %}
                 <div class="mt-3 border-t pt-2">
-                  <button class="flex items-center justify-between w-full text-left text-md font-medium text-blue-600 hover:text-blue-800 focus:outline-none" 
-                          type="button"
-                          onclick="toggleCapacidadGroup('cap-{{ alojamiento_id }}-{{ tipo|slugify }}-{{ capacidad_group.grouper }}')">
+                  <button class="flex items-center justify-between w-full text-left text-md font-medium text-blue-600 hover:text-blue-800 focus:outline-none" type="button" onclick="toggleCapacidadGroup('cap-{{ alojamiento_id }}-{{ tipo|slugify }}-{{ capacidad_group.grouper }}')">
                     <span>
                       <i class="fas fa-bed mr-1"></i>
                       Capacidad: {{ capacidad_group.grouper }} personas ({{ capacidad_group.list|length }} habitaciones)
@@ -248,8 +324,7 @@
                     </svg>
                   </button>
                   
-                  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-2 overflow-hidden transition-all duration-300"
-                       id="cap-{{ alojamiento_id }}-{{ tipo|slugify }}-{{ capacidad_group.grouper }}">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-2 overflow-hidden transition-all duration-300" id="cap-{{ alojamiento_id }}-{{ tipo|slugify }}-{{ capacidad_group.grouper }}">
                     {% for room in capacidad_group.list %}
                       <div class="p-4 border rounded-lg hover:shadow-md transition-shadow bg-gray-50">
                         <div class="flex justify-between items-center mb-2">
@@ -261,8 +336,6 @@
                         </div>
                         <p class="text-sm text-gray-600">Capacidad: {{ room.capacidad }}</p>
                         <p class="text-xs text-gray-500 mt-1">Número: {{ room.numero|default:"-" }}</p>
-                        
-                        <!-- Información de ocupantes -->
                         <div class="mt-2 text-sm">
                           <p>Ocupación: {{ room.ocupacion_actual }}/{{ room.capacidad }}</p>
                           {% if room.ocupantes %}
@@ -276,21 +349,16 @@
                             </details>
                           {% endif %}
                         </div>
-                        
-                        <!-- Botones de acciones corregidos -->
                         <div class="mt-3 flex justify-between">
                           <a href="{% url 'habitacion_update' room.pk %}" class="text-blue-500 hover:text-blue-700 text-sm">
                             <i class="fas fa-edit"></i> Editar
                           </a>
-                          <a href="{% url 'habitacion_detail' room.pk %}" 
-                            class="text-green-500 hover:text-green-700 text-sm">
+                          <a href="{% url 'habitacion_detail' room.pk %}" class="text-green-500 hover:text-green-700 text-sm">
                             <i class="fas fa-users"></i> Ver Ocupantes
                           </a>
-                          <button type="button" onclick="confirmDelete('{% url 'habitacion_delete' room.pk %}')"
-                            class="flex items-center justify-center w-8 h-8 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded transition-colors">
+                          <button type="button" onclick="confirmDelete('{% url 'habitacion_delete' room.pk %}')" class="flex items-center justify-center w-8 h-8 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded transition-colors">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                             </svg>
                           </button>
                         </div>
@@ -301,80 +369,47 @@
               {% endfor %}
             </div>
           {% endfor %}
-        </div>
       {% endfor %}
-    {% else %}
-    <div class="bg-gray-50 p-8 rounded-lg text-center">
-      <div class="mx-auto max-w-md">
-        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-        </svg>
-        <h3 class="mt-2 text-sm font-medium text-gray-900">No hay habitaciones registradas</h3>
-        <p class="mt-1 text-sm text-gray-500">Para empezar, necesitas asignar alojamientos a esta escapada.</p>
-        <div class="mt-6">
-          <a href="{% url 'escapada_alojamiento_multiple_create' escapada.pk %}"
-             class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-            <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-            </svg>
-            Asignar Alojamientos
-          </a>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-  </section>
-
-  
-
-  
-  <!-- Delete Confirmation Modal -->
-<div id="deleteModal" class="hidden fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-  <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-    <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
-    <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-      <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-        <div class="sm:flex sm:items-start">
-          <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-            <svg class="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01"/>
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.938 20h10.124c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L5.206 17c-.77 1.333.192 3 1.732 3z"/>
-            </svg>
-          </div>
-          <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-            <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
-              Eliminar Habitación
-            </h3>
-            <div class="mt-2">
-              <p class="text-sm text-gray-500">
-                ¿Estás seguro que deseas eliminar esta habitación? Esta acción no se puede deshacer.
-              </p>
+        {% else %}
+          <div class="bg-yellow-50 p-8 rounded-lg text-center">
+            <div class="mx-auto max-w-md">
+              <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+              <h3 class="mt-2 text-sm font-medium text-gray-900">No hay habitaciones registradas</h3>
+              <p class="mt-1 text-sm text-gray-500">Para empezar, necesitas asignar alojamientos a esta escapada.</p>
+              <div class="mt-6">
+                <a href="{% url 'escapada_alojamiento_multiple_create' escapada.pk %}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                  <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                  </svg>
+                  Asignar Alojamientos
+                </a>
+              </div>
             </div>
           </div>
-        </div>
+        {% endif %}
+      </section>
+
+  <!-- Delete Confirmation Modal (único modal para todas las eliminaciones) -->
+  <div id="deleteModal" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden">
+    <div class="bg-white rounded-lg p-6 max-w-sm w-full">
+      <h3 class="text-xl font-bold mb-4" id="deleteModalTitle">Confirmar eliminación</h3>
+      <p class="mb-4" id="deleteModalMessage">¿Estás seguro de eliminar?</p>
+      <div class="flex justify-end space-x-4">
+        <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300" onclick="closeDeleteModal()">Cancelar</button>
+        <button type="button" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700" id="deleteModalConfirmBtn" onclick="document.getElementById('deleteForm').submit()">Eliminar</button>
       </div>
-      <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-        <form id="deleteForm" method="POST">
-          {% csrf_token %}
-          <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
-            Eliminar
-          </button>
-        </form>
-        <button type="button" onclick="closeDeleteModal()" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
-          Cancelar
-        </button>
-      </div>
+      <form id="deleteForm" method="POST" class="hidden">
+        {% csrf_token %}
+      </form>
     </div>
   </div>
-</div>
-
 
   <!-- Sección: Acciones Finales -->
   <footer class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
     <!-- Botón de Check-in -->
-    <a href="{% url 'checkin_list' escapada_id=escapada.pk %}" 
-      class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-200 flex items-center justify-center space-x-2">
+    <a href="{% url 'checkin_list' escapada_id=escapada.pk %}" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-200 flex items-center justify-center space-x-2">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
       </svg>
@@ -382,17 +417,15 @@
     </a>
 
     <!-- Botón de Inscripción -->
-    <a href="{% url 'escapada_inscripcion' escapada.pk %}" 
-      class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200 flex items-center justify-center space-x-2">
+    <a href="{% url 'escapada_inscripcion' escapada.pk %}" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200 flex items-center justify-center space-x-2">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
       </svg>
       <span>Realizar Inscripción</span>
     </a>
 
-    <!-- Botón de Editar -->
-    <a href="{% url 'escapada_update' escapada.pk %}" 
-      class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition duration-200 flex items-center justify-center space-x-2">
+    <!-- Botón de Editar Escapada -->
+    <a href="{% url 'escapada_update' escapada.pk %}" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition duration-200 flex items-center justify-center space-x-2">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
       </svg>
@@ -400,69 +433,70 @@
     </a>
 
     <!-- Botón de Volver -->
-    <a href="{% url 'escapada_list' %}" 
-      class="px-6 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition duration-200 flex items-center justify-center space-x-2">
+    <a href="{% url 'escapada_list' %}" class="px-6 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition duration-200 flex items-center justify-center space-x-2">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
       </svg>
       <span>Volver</span>
     </a>
   </footer>
-
 </div>
 
-
 <script>
-  function toggleCapacidadGroup(id) {
-    const group = document.getElementById(id);
-    const icon = document.getElementById('icon-' + id);
-    
-    if (group.classList.contains('hidden')) {
-      // Mostrar el grupo
-      group.classList.remove('hidden');
-      group.classList.add('block');
-      icon.classList.remove('rotate-180');
-      
-      // Animación de altura
-      const height = group.scrollHeight;
-      group.style.maxHeight = height + 'px';
-      
-      // Después de la transición, eliminar la altura máxima fija
-      setTimeout(() => {
-        group.style.maxHeight = '';
-      }, 300);
-    } else {
-      // Ocultar el grupo
-      group.style.maxHeight = group.scrollHeight + 'px';
-      
-      // Forzar un reflow
-      void group.offsetWidth;
-      
-      // Iniciar transición a altura cero
-      group.style.maxHeight = '0px';
-      icon.classList.add('rotate-180');
-      
-      // Después de la transición, ocultar completamente
-      setTimeout(() => {
-        group.classList.remove('block');
-        group.classList.add('hidden');
-        group.style.maxHeight = '';
-      }, 300);
+  function hideLoading() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+      overlay.classList.add('hidden');
+      overlay.classList.remove('flex');
     }
   }
   
-  // Inicializar todos los grupos como ocultos al cargar la página
   document.addEventListener('DOMContentLoaded', function() {
-    const capacidadGroups = document.querySelectorAll('[id^="cap-"]');
-    capacidadGroups.forEach(group => {
-      group.classList.add('hidden');
-      group.style.maxHeight = '0px';
-      const iconId = 'icon-' + group.id;
-      const icon = document.getElementById(iconId);
-      if (icon) {
-        icon.classList.add('rotate-180');
+    window.showLoading = function() {
+      const overlay = document.getElementById('loadingOverlay');
+      if (overlay) {
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
       }
-    });
+    };
+    
+    const dniForm = document.getElementById('dniForm');
+    const dniInput = document.getElementById('dni');
+    if (dniForm) {
+      dniForm.addEventListener('submit', function(e) {
+        const dni = dniInput.value.toUpperCase();
+        const dniRegex = /^[0-9]{8}[A-Z]$/;
+        if (!dniRegex.test(dni)) {
+          e.preventDefault();
+          alert('Por favor, introduce un DNI válido (8 números seguidos de una letra)');
+          return false;
+        }
+        showLoading();
+      });
+    }
+    
+    if (document.getElementById('tiempoRestante')) {
+      actualizarTiempoRestante();
+      setInterval(actualizarTiempoRestante, 1000);
+    }
+    
+    function actualizarTiempoRestante() {
+      {% if expiracion_reserva %}
+        const ahora = new Date();
+        const expiracion = new Date('{{ expiracion_reserva|date:"c" }}');
+        const diferencia = expiracion - ahora;
+        if (diferencia <= 0) { location.reload(); return; }
+        const minutos = Math.floor(diferencia / 60000);
+        const segundos = Math.floor((diferencia % 60000) / 1000);
+        document.getElementById('tiempoRestante').textContent = `${minutos}:${segundos < 10 ? '0' : ''}${segundos}`;
+      {% endif %}
+    }
+    
+    window.goBack = function() {
+      if (window.history.length > 1) window.history.back();
+      else window.location.href = "{% url 'escapada_inscripcion' escapada.id %}";
+      showLoading();
+    };
   });
-  </script>
+</script>
 {% endblock %}

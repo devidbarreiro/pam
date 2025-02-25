@@ -22,6 +22,8 @@ urlpatterns = [
     path('inscripcion/<int:pk>/checkin/', views.realizar_checkin, name='realizar_checkin'),
     path('inscripcion/<int:pk>/cancelar-checkin/', views.cancelar_checkin, name='cancelar_checkin'),
     path('inscripcion/asignar-habitacion/', views.asignar_habitacion_checkin, name='asignar_habitacion_checkin'),
+    path('inscripcion/<int:pk>/editar/', views.InscripcionUpdateView.as_view(), name='inscripcion_update'),
+    path('inscripcion/<int:pk>/eliminar/', views.InscripcionDeleteView.as_view(), name='inscripcion_delete'),
 
         
     # URLs para Alojamiento

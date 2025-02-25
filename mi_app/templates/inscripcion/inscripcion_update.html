@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Admin - Modificar Inscripción{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-6xl">
+  <!-- Cabecera con datos de la inscripción -->
+  <div class="bg-white shadow-md rounded-lg overflow-hidden mb-6">
+    <div class="bg-gray-800 text-white p-4">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 class="text-xl font-bold">Modificar Inscripción #{{ inscripcion.id }}</h1>
+          <p class="text-gray-300 text-sm">{{ inscripcion.persona.nombre }} {{ inscripcion.persona.apellidos }}</p>
+        </div>
+        <div class="mt-2 md:mt-0">
+          <span class="px-3 py-1 rounded-full text-xs font-medium
+            {% if inscripcion.pagado %}bg-green-200 text-green-800{% else %}bg-yellow-200 text-yellow-800{% endif %}">
+            {% if inscripcion.pagado %}Pagado{% else %}Pendiente de pago{% endif %}
+          </span>
+          {% if inscripcion.habitacion %}
+            <span class="ml-2 px-3 py-1 rounded-full bg-blue-200 text-blue-800 text-xs font-medium">
+              Con habitación
+            </span>
+          {% else %}
+            <span class="ml-2 px-3 py-1 rounded-full bg-gray-200 text-gray-800 text-xs font-medium">
+              Sin habitación
+            </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Datos rápidos y resumen -->
+    <div class="p-4 border-b border-gray-200 grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50 text-sm">
+      <div>
+        <span class="block text-gray-500">Escapada</span>
+        <span class="font-medium">{{ inscripcion.escapada.nombre }}</span>
+      </div>
+      <div>
+        <span class="block text-gray-500">DNI</span>
+        <span class="font-medium">{{ inscripcion.persona.dni }}</span>
+      </div>
+      <div>
+        <span class="block text-gray-500">Fecha inscripción</span>
+        <span class="font-medium">{{ inscripcion.fecha_inscripcion|date:"d/m/Y H:i" }}</span>
+      </div>
+      <div>
+        <span class="block text-gray-500">Importe</span>
+        <span class="font-medium">
+          {% if inscripcion.pagado %}
+            {{ inscripcion.importe|floatformat:2 }}€ 
+            <span class="text-green-600 text-xs">(Pagado)</span>
+          {% else %}
+            {{ inscripcion.importe|floatformat:2 }}€ 
+            <span class="text-yellow-600 text-xs">({{ inscripcion.pendiente|floatformat:2 }}€ pendiente)</span>
+          {% endif %}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel de pestañas para diferentes secciones -->
+  <div class="bg-white shadow-md rounded-lg overflow-hidden">
+    <div class="bg-gray-100 px-4 py-3 border-b border-gray-200">
+      <div class="flex overflow-x-auto">
+        <button class="px-4 py-2 text-gray-800 font-medium border-b-2 border-blue-600 focus:outline-none">
+          Información básica
+        </button>
+        <button class="px-4 py-2 text-gray-500 hover:text-gray-800 font-medium focus:outline-none">
+          Alojamiento
+        </button>
+        <button class="px-4 py-2 text-gray-500 hover:text-gray-800 font-medium focus:outline-none">
+          Pagos
+        </button>
+        <button class="px-4 py-2 text-gray-500 hover:text-gray-800 font-medium focus:outline-none">
+          Historial
+        </button>
+      </div>
+    </div>
+
+    <!-- Contenido principal del formulario -->
+    <div class="p-6">
+      <!-- Mensajes y alertas -->
+      {% if messages %}
+        <div class="mb-6">
+          {% for message in messages %}
+            <div class="p-4 mb-2 rounded-md {% if message.tags == 'error' %}bg-red-50 text-red-700 border border-red-200{% elif message.tags == 'success' %}bg-green-50 text-green-700 border border-green-200{% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        <!-- Datos de la persona -->
+        <div class="border border-gray-200 rounded-md overflow-hidden">
+          <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h3 class="text-base font-medium text-gray-700">Datos personales</h3>
+          </div>
+          <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+              <input type="text" name="nombre" value="{{ inscripcion.persona.nombre }}" 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Apellidos</label>
+              <input type="text" name="apellidos" value="{{ inscripcion.persona.apellidos }}" 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">DNI</label>
+              <input type="text" name="dni" value="{{ inscripcion.persona.dni }}" 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
+                     maxlength="9">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input type="email" name="email" value="{{ inscripcion.persona.email }}" 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+              <input type="tel" name="telefono" value="{{ inscripcion.persona.telefono }}" 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Fecha nacimiento</label>
+              <input type="date" name="fecha_nacimiento" value="{{ inscripcion.persona.fecha_nacimiento|date:'Y-m-d' }}" 
+                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Datos de la inscripción -->
+        <div class="border border-gray-200 rounded-md overflow-hidden">
+          <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h3 class="text-base font-medium text-gray-700">Datos de inscripción</h3>
+          </div>
+          <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Aquí renderizamos el formulario -->
+            {% for field in form %}
+              <div class="{% if field.errors %}has-error{% endif %}">
+                <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                  {{ field.label }}
+                  {% if field.field.required %}<span class="text-red-500">*</span>{% endif %}
+                </label>
+                
+                {{ field }}
+                
+                {% if field.help_text %}
+                  <p class="text-xs text-gray-500 mt-1">{{ field.help_text }}</p>
+                {% endif %}
+                
+                {% if field.errors %}
+                  <div class="text-red-600 text-xs mt-1">
+                    {% for error in field.errors %}
+                      <p>{{ error }}</p>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+        
+        <!-- Sección de opciones de alojamiento -->
+        <div class="border border-gray-200 rounded-md overflow-hidden">
+          <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h3 class="text-base font-medium text-gray-700">Opciones de alojamiento</h3>
+          </div>
+          <div class="p-4">
+            <!-- Bloque para condicionar según tipo_alojamiento_deseado -->
+            {% if inscripcion.tipo_alojamiento_deseado %}
+              {% with tipo=inscripcion.tipo_alojamiento_deseado|lower %}
+                {% if "sin alojamiento" in tipo %}
+                  <div class="p-4 bg-blue-50 rounded-md flex items-start">
+                    <svg class="h-5 w-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p class="font-medium text-blue-700">Sin alojamiento</p>
+                      <p class="text-sm text-blue-600 mt-1">Este participante no requiere alojamiento.</p>
+                      <div class="mt-3">
+                        <a href="#" class="text-sm text-blue-600 hover:text-blue-800 underline">Cambiar opción de alojamiento</a>
+                      </div>
+                    </div>
+                  </div>
+                {% elif "familia" in tipo %}
+                  <div class="p-4 bg-green-50 rounded-md flex items-start">
+                    <svg class="h-5 w-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <div>
+                      <p class="font-medium text-green-700">Familia Hakuna</p>
+                      <p class="text-sm text-green-600 mt-1">Este participante es parte de la familia Hakuna. Se le asignará alojamiento automáticamente.</p>
+                      <div class="mt-3">
+                        <a href="#" class="text-sm text-green-600 hover:text-green-800 underline">Cambiar opción de alojamiento</a>
+                      </div>
+                    </div>
+                  </div>
+                {% else %}
+                  <!-- Opción para asignar habitación -->
+                  <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Habitación asignada</label>
+                    <div class="flex">
+                      <select class="w-full px-3 py-2 border border-gray-300 rounded-l-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Sin asignar --</option>
+                        {% if inscripcion.habitacion %}
+                          <option value="{{ inscripcion.habitacion.id }}" selected>
+                            {{ inscripcion.habitacion.numero_ficticio }} - {{ inscripcion.habitacion.escapada_alojamiento.alojamiento.nombre }} 
+                            (Capacidad: {{ inscripcion.habitacion.capacidad }})
+                          </option>
+                        {% endif %}
+                        <!-- Aquí se listarían otras habitaciones disponibles -->
+                      </select>
+                      <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded-r-md hover:bg-blue-700">
+                        Buscar
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {% if inscripcion.habitacion %}
+                    <div class="p-4 bg-gray-50 rounded-md border border-gray-200">
+                      <div class="flex justify-between items-start">
+                        <div>
+                          <h4 class="font-medium">Habitación #{{ inscripcion.habitacion.numero_ficticio }}</h4>
+                          <p class="text-sm text-gray-600">{{ inscripcion.habitacion.escapada_alojamiento.alojamiento.nombre }}</p>
+                          <p class="text-sm text-gray-600">Capacidad: {{ inscripcion.habitacion.capacidad }} personas</p>
+                        </div>
+                        <button type="button" class="text-red-600 hover:text-red-800">
+                          <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      <!-- Lista de ocupantes -->
+                      <div class="mt-3">
+                        <h5 class="text-sm font-medium text-gray-700 mb-2">Ocupantes:</h5>
+                        <ul class="space-y-1.5">
+                          {% for reserva in inscripcion.habitacion.reservas.all %}
+                            <li class="flex items-center text-sm {% if reserva.es_anfitrion %}font-medium{% endif %}">
+                              <span class="w-full">{{ reserva.persona.nombre }} {{ reserva.persona.apellidos }}</span>
+                              <span class="text-xs px-2 py-0.5 rounded-full {% if reserva.es_anfitrion %}bg-blue-100 text-blue-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {% if reserva.es_anfitrion %}Anfitrión{% else %}Compañero{% endif %}
+                              </span>
+                            </li>
+                          {% empty %}
+                            <li class="text-sm text-gray-500 italic">Sin ocupantes asignados</li>
+                          {% endfor %}
+                        </ul>
+                      </div>
+                    </div>
+                  {% endif %}
+                {% endif %}
+              {% endwith %}
+            {% else %}
+              <div class="p-4 bg-yellow-50 rounded-md flex items-start">
+                <svg class="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p class="font-medium text-yellow-700">Sin preferencia de alojamiento</p>
+                  <p class="text-sm text-yellow-600 mt-1">Este participante no ha indicado preferencias de alojamiento.</p>
+                  <div class="mt-3">
+                    <a href="#" class="text-sm text-yellow-600 hover:text-yellow-800 underline">Definir opción de alojamiento</a>
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Sección de pagos -->
+        <div class="border border-gray-200 rounded-md overflow-hidden">
+          <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h3 class="text-base font-medium text-gray-700">Gestión de pagos</h3>
+          </div>
+          <div class="p-4">
+            <div class="flex items-center mb-4">
+              <span class="text-sm font-medium mr-4">Estado de pago:</span>
+              <span class="px-3 py-1 rounded-full text-xs font-medium
+                {% if inscripcion.pagado %}bg-green-100 text-green-800{% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                {% if inscripcion.pagado %}Pagado{% else %}Pendiente{% endif %}
+              </span>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Importe total</label>
+                <input type="number" step="0.01" name="importe" value="{{ inscripcion.importe|floatformat:2 }}" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Pagado</label>
+                <input type="number" step="0.01" name="pagado" value="{% if inscripcion.pagado %}{{ inscripcion.importe|floatformat:2 }}{% else %}0.00{% endif %}" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Pendiente</label>
+                <input type="number" step="0.01" name="pendiente" value="{% if inscripcion.pendiente != None %}{{ inscripcion.pendiente|floatformat:2 }}{% else %}{{ inscripcion.importe|default:0|floatformat:2 }}{% endif %}" class="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md" >
+              </div>
+            <div class="flex items-center mb-3">
+              <input type="checkbox" name="marcar_pagado" id="marcar_pagado" 
+                     class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                     {% if inscripcion.pagado %}checked{% endif %}>
+              <label for="marcar_pagado" class="ml-2 block text-sm text-gray-700">
+                Marcar inscripción como pagada
+              </label>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Método de pago</label>
+                <select name="metodo_pago" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">-- Seleccionar --</option>
+                  <option value="transferencia" {% if inscripcion.metodo_pago == 'transferencia' %}selected{% endif %}>Transferencia bancaria</option>
+                  <option value="efectivo" {% if inscripcion.metodo_pago == 'efectivo' %}selected{% endif %}>Efectivo</option>
+                  <option value="tarjeta" {% if inscripcion.metodo_pago == 'tarjeta' %}selected{% endif %}>Tarjeta de crédito</option>
+                  <option value="bizum" {% if inscripcion.metodo_pago == 'bizum' %}selected{% endif %}>Bizum</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de pago</label>
+                <input type="date" name="fecha_pago" value="{{ inscripcion.fecha_pago|date:'Y-m-d' }}" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              </div>
+            </div>
+            
+            <div class="mt-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Observaciones de pago</label>
+              <textarea name="observaciones_pago" rows="2" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ inscripcion.observaciones_pago }}</textarea>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Botones de acción -->
+        <div class="flex flex-col-reverse md:flex-row justify-between gap-4 pt-4 border-t border-gray-200">
+          <div class="flex flex-col md:flex-row gap-2">
+            
+            <button type="button" class="px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 text-center">
+              Cancelar inscripción
+            </button>
+          </div>
+          <div class="flex flex-col md:flex-row gap-2">
+            <button type="submit" name="guardar" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+              Guardar cambios
+            </button>
+            <button type="submit" name="guardar_continuar" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+              Guardar y continuar editando
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Estilos para el formulario -->
+<style>
+  /* Estilos para los inputs del form */
+  input[type="text"], input[type="email"], input[type="number"], 
+  input[type="tel"], input[type="date"], input[type="password"],
+  select, textarea {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+  }
+  
+  /* Estilos para campos con error */
+  .has-error input, .has-error select, .has-error textarea {
+    @apply border-red-300 bg-red-50;
+  }
+</style>
+{% endblock %}
