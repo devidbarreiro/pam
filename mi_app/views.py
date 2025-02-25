@@ -1,74 +1,111 @@
 # views.py
 
 import csv
+import datetime
 import io
 import json
 import logging
-import datetime
 import traceback
 from decimal import Decimal
-from io import TextIOWrapper
+from io import BytesIO, TextIOWrapper
 
-from django.views.decorators.http import require_POST
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Count, F, Q
+from django.db.models import Count, F, Q, Sum
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import JsonResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.contrib.auth.decorators import login_required
-
-from django.views.decorators.http import require_http_methods
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods, require_POST
 from django.views.generic import (
-    ListView, CreateView, DetailView, UpdateView, DeleteView, View,
-    FormView, TemplateView
+    CreateView, DeleteView, DetailView, FormView, ListView,
+    TemplateView, UpdateView, View
 )
-import csv
-import json
-import logging
-import datetime
-from decimal import Decimal
-from io import TextIOWrapper, BytesIO
-
-from django.shortcuts import render, redirect
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.db import transaction
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 from .forms import (
-    CSVImportForm, EscapadaAlojamientoForm, EscapadaAlojamientoMultipleForm, HabitacionBulkForm, HabitacionForm
+    CSVImportForm, EscapadaAlojamientoForm, EscapadaAlojamientoMultipleForm,
+    HabitacionBulkForm, HabitacionForm, PersonaForm, PersonaInscripcionForm
 )
 from .models import (
-    Escapada, Alojamiento, Habitacion, Persona, Inscripcion, EscapadaAlojamiento, ReservaHabitacion, TIPO_HABITACION_CHOICES
+    Alojamiento, Escapada, EscapadaAlojamiento, Habitacion, Inscripcion,
+    Persona, ReservaHabitacion, TIPO_HABITACION_CHOICES, ESTADO_HABITACION_CHOICES
 )
-from .utils import (
-    validar_csv
-)
+import csv
+from decimal import Decimal
+import datetime
+from django.db import transaction
+from django.core.exceptions import ValidationError
+from typing import Dict, List, Tuple, Any, Optional
+import logging
+from io import TextIOWrapper
+from django.http import JsonResponse
 
 
-class HomeView(TemplateView):
+class HomeView(TemplateView, LoginRequiredMixin, UserPassesTestMixin):
     template_name = 'home.html'
+    
+    def test_func(self):
+        # Permitir si el usuario es superuser o su username es uno de los autorizados
+        return self.request.user.is_superuser or self.request.user.username in ['gabi', 'david', 'checkin']
 
 # --------------------
 # VIEWS PARA ESCAPADA
 # --------------------
-class EscapadaListView(ListView):
+
+class EscapadaListView(ListView, LoginRequiredMixin, UserPassesTestMixin):
     model = Escapada
     template_name = 'escapada/escapada_list.html'
     context_object_name = 'escapadas'
+    
+    def post(self, request, *args, **kwargs):
+        escapada_id = request.POST.get('escapada_id')
+        if escapada_id:
+            try:
+                escapada = get_object_or_404(Escapada, id=escapada_id)
+                nombre = escapada.nombre
+                escapada.delete()
+                messages.success(request, f'La escapada "{nombre}" ha sido eliminada correctamente.')
+            except Exception as e:
+                messages.error(request, f'Error al eliminar la escapada: {str(e)}')
+        
+        return HttpResponseRedirect(reverse_lazy('escapada_list'))
 
+    def test_func(self):
+        # Permitir si el usuario es superuser o su username es uno de los autorizados
+        return self.request.user.is_superuser or self.request.user.username in ['gabi', 'david', 'checkin']
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Aplicar filtros si existen
+        search = self.request.GET.get('search')
+        fecha_desde = self.request.GET.get('fecha_desde')
+        fecha_hasta = self.request.GET.get('fecha_hasta')
+        
+        if search:
+            queryset = queryset.filter(
+                Q(nombre__icontains=search) | Q(lugar__icontains=search)
+            )
+        
+        if fecha_desde:
+            queryset = queryset.filter(fecha_ini__gte=fecha_desde)
+            
+        if fecha_hasta:
+            queryset = queryset.filter(fecha_fin__lte=fecha_hasta)
+            
+        return queryset
 class EscapadaCreateView(CreateView):
     model = Escapada
     fields = '__all__'
     template_name = 'escapada/escapada_form.html'
     success_url = reverse_lazy('escapada_list')
-
-import logging
-from django.views.generic import DetailView
-from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
-from django.utils import timezone
-from .models import Escapada
 
 logger = logging.getLogger(__name__)
 
@@ -198,16 +235,39 @@ class AlojamientoListView(ListView):
     model = Alojamiento
     template_name = 'alojamiento/alojamiento_list.html'
     context_object_name = 'alojamientos'
+    paginate_by = 10
+
+    def post(self, request, *args, **kwargs):
+        alojamiento_id = request.POST.get('alojamiento_id')
+        if alojamiento_id:
+            try:
+                alojamiento = get_object_or_404(Alojamiento, id=alojamiento_id)
+                nombre = alojamiento.nombre
+                alojamiento.delete()
+                messages.success(request, f'El alojamiento "{nombre}" ha sido eliminado correctamente.')
+            except Exception as e:
+                messages.error(request, f'Error al eliminar el alojamiento: {str(e)}')
+        
+        return HttpResponseRedirect(reverse_lazy('alojamiento_list'))
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        q = self.request.GET.get('q')
+        
+        if q:
+            queryset = queryset.filter(
+                Q(nombre__icontains=q) | 
+                Q(direccion__icontains=q) |
+                Q(telefono__icontains=q)
+            )
+            
+        return queryset
 
 class AlojamientoCreateView(CreateView):
     model = Alojamiento
     fields = '__all__'
     template_name = 'alojamiento/alojamiento_form.html'
     success_url = reverse_lazy('alojamiento_list')
-
-from django.db.models import Sum, Count, F
-from django.views.generic import DetailView
-from .models import Alojamiento, Habitacion
 
 class AlojamientoDetailView(DetailView):
     model = Alojamiento
@@ -251,19 +311,6 @@ class AlojamientoDeleteView(DeleteView):
 # ---------------------
 # VIEWS PARA HABITACION
 # ---------------------
-
-from django.views.generic import ListView
-from django.db.models import Count, Sum, F, Q
-from .models import Habitacion, Escapada, Alojamiento
-from django.views.generic import DetailView
-from django.contrib import messages
-from django.shortcuts import redirect
-from django.urls import reverse
-from .models import Habitacion, Persona
-
-from django.views.generic import ListView
-from .models import Habitacion, Escapada, Alojamiento, ESTADO_HABITACION_CHOICES
-from django.db.models import Q, Sum
 
 class HabitacionListView(ListView):
     model = Habitacion
@@ -399,45 +446,89 @@ class HabitacionDetailView(DetailView):
     template_name = 'habitacion/habitacion_detail.html'
     context_object_name = 'habitacion'
     
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        habitacion = self.get_object()
+        
+        # Obtener personas alojadas a través de ReservaHabitacion
+        context['ocupantes'] = ReservaHabitacion.objects.filter(
+            habitacion=habitacion
+        ).select_related('persona')
+        
+        # Obtener personas disponibles para asignar (inscritas en la escapada pero sin habitación)
+        personas_ya_alojadas = ReservaHabitacion.objects.filter(
+            habitacion__escapada_alojamiento=habitacion.escapada_alojamiento
+        ).values_list('persona_id', flat=True)
+        
+        context['personas_disponibles'] = Inscripcion.objects.filter(
+            escapada=habitacion.escapada_alojamiento.escapada
+        ).exclude(
+            persona_id__in=personas_ya_alojadas
+        ).select_related('persona')
+        
+        return context
+
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
+        action = request.POST.get('action')
         
-        # Manejar la acción de desalojar persona
-        if request.POST.get('action') == 'desalojar':
-            try:
-                persona_id = request.POST.get('persona_id')
-                persona = Persona.objects.get(id=persona_id)
-                
-                # Verificar que la persona está en esta habitación
-                if persona.habitacion and persona.habitacion.id == self.object.id:
-                    persona_nombre = persona.nombre
-                    persona.habitacion = None
-                    persona.save()
-                    
-                    # Actualizar el estado de la habitación si ahora está vacía
-                    self.actualizar_estado_habitacion()
-                    
-                    messages.success(request, f"Se ha desalojado a {persona_nombre} de la habitación {self.object.numero}.")
-                else:
-                    messages.error(request, "Esta persona no se encuentra alojada en esta habitación.")
-            except Persona.DoesNotExist:
-                messages.error(request, "No se encontró la persona.")
-            except Exception as e:
-                messages.error(request, f"Error al desalojar: {str(e)}")
-                
+        if action == 'asignar':
+            self._asignar_persona(request)
+        elif action == 'desalojar':
+            self._desalojar_persona(request)
+            
         return redirect(reverse('habitacion_detail', kwargs={'pk': self.object.pk}))
     
-    def actualizar_estado_habitacion(self):
-        """Actualiza el estado de la habitación basado en su ocupación"""
-        # Si no hay personas, cambia a disponible
-        if self.object.persona_set.count() == 0 and self.object.estado == 'ocupada':
-            self.object.estado = 'disponible'
-            self.object.save()
-        # Si hay personas pero no estaba marcada como ocupada, actualiza
-        elif self.object.persona_set.count() > 0 and self.object.estado != 'ocupada':
-            self.object.estado = 'ocupada'
-            self.object.save()
+    def _asignar_persona(self, request):
+        persona_id = request.POST.get('persona_id')
+        try:
+            # Verificar que la persona está inscrita en la escapada
+            inscripcion = Inscripcion.objects.get(
+                persona_id=persona_id,
+                escapada=self.object.escapada_alojamiento.escapada
+            )
+            
+            # Verificar capacidad de la habitación
+            if self.object.plazas_disponibles() > 0:
+                # Crear nueva reserva
+                ReservaHabitacion.objects.create(
+                    persona_id=persona_id,
+                    habitacion=self.object
+                )
+                
+                # Actualizar estado de la habitación
+                self.object.estado = 'ocupada'
+                self.object.save()
+                
+                messages.success(request, f"Se ha asignado a {inscripcion.persona.nombre} a la habitación.")
+            else:
+                messages.error(request, "No hay plazas disponibles en esta habitación.")
+                
+        except Inscripcion.DoesNotExist:
+            messages.error(request, "La persona debe estar inscrita en la escapada para poder asignarle una habitación.")
+        except Exception as e:
+            messages.error(request, f"Error al asignar persona: {str(e)}")
 
+    def _desalojar_persona(self, request):
+        try:
+            reserva = ReservaHabitacion.objects.get(
+                persona_id=request.POST.get('persona_id'),
+                habitacion=self.object
+            )
+            nombre_persona = reserva.persona.nombre
+            reserva.delete()
+            
+            # Actualizar estado si la habitación queda vacía
+            if not ReservaHabitacion.objects.filter(habitacion=self.object).exists():
+                self.object.estado = 'disponible'
+                self.object.save()
+                
+            messages.success(request, f"Se ha desalojado a {nombre_persona} de la habitación.")
+        except ReservaHabitacion.DoesNotExist:
+            messages.error(request, "Esta persona no se encuentra alojada en esta habitación.")
+        except Exception as e:
+            messages.error(request, f"Error al desalojar: {str(e)}")
+            
 class HabitacionUpdateView(UpdateView):
     model = Habitacion
     fields = '__all__'
@@ -589,22 +680,6 @@ class HabitacionBulkCreateView(View):
             'form': form,
             'ea': ea
         })
-
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.http import JsonResponse
-from django.urls import reverse
-from django.core.paginator import Paginator
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_POST
-from django.db.models import Count, Q
-
-from .models import (
-    Habitacion, EscapadaAlojamiento, Escapada, 
-    Alojamiento, Persona, ReservaHabitacion,
-    TIPO_HABITACION_CHOICES, ESTADO_HABITACION_CHOICES
-)
-from .forms import HabitacionForm  # You'll need to create this form
 
 @login_required
 def habitacion_update(request, pk):
@@ -822,70 +897,98 @@ class PersonaListView(ListView):
     template_name = 'persona/persona_list.html'
     context_object_name = 'personas'
     paginate_by = 12  # Muestra 12 personas por página
-    ordering = ['nombre', 'apellidos']  # Ordenamiento por nombre y apellidos
-    
+    ordering = ['nombre', 'apellidos']
+
     def get_queryset(self):
         queryset = super().get_queryset()
-        
-        # Prefetch relacionados para optimizar rendimiento
+
+        # Excluir registros sin pk
+        queryset = queryset.exclude(pk='')
+
+        # Filtro de búsqueda por nombre, apellidos o DNI
+        search_query = self.request.GET.get('q')
+        if search_query:
+            queryset = queryset.filter(
+                Q(nombre__icontains=search_query) |
+                Q(apellidos__icontains=search_query) |
+                Q(dni__icontains=search_query)
+            )
+
+        # Filtro por escapada (según la inscripción)
+        escapada_id = self.request.GET.get('escapada')
+        if escapada_id:
+            queryset = queryset.filter(inscripciones__escapada__id=escapada_id)
+
+        # Filtro por estado de pago
+        pago_filter = self.request.GET.get('pago')
+        if pago_filter:
+            if pago_filter == 'pagado':
+                queryset = queryset.filter(inscripciones__ha_pagado=True)
+            elif pago_filter == 'pendiente':
+                queryset = queryset.filter(inscripciones__ha_pagado=False)
+
+        # Prefetch para optimizar consultas y evitar repeticiones
         queryset = queryset.prefetch_related(
             'inscripciones', 'inscripciones__escapada',
             'habitaciones_reservadas', 'habitaciones_reservadas__escapada_alojamiento',
             'habitaciones_reservadas__escapada_alojamiento__alojamiento'
-        )
-        
+        ).distinct()
+
         return queryset
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        # Obtener todas las personas
-        todas_personas = Persona.objects.all()
-        context['total_personas'] = todas_personas.count()
-        
-        # Contar personas con pagos completados (al menos una inscripción pagada)
-        personas_pagadas = Persona.objects.filter(inscripciones__ha_pagado=True).distinct().count()
+
+        # Estadísticas generales (sin aplicar los filtros de búsqueda)
+        total_personas = Persona.objects.exclude(pk='').count()
+        context['total_personas'] = total_personas
+
+        personas_pagadas = Persona.objects.exclude(pk='').filter(inscripciones__ha_pagado=True).distinct().count()
         context['personas_pagadas'] = personas_pagadas
-        
-        # Contar personas con pagos pendientes
-        personas_pendientes = Persona.objects.filter(
+
+        personas_pendientes = Persona.objects.exclude(pk='').filter(
             inscripciones__ha_pagado=False,
             inscripciones__isnull=False
         ).distinct().count()
         context['personas_pendientes'] = personas_pendientes
-        
-        # Añadir escapadas para el filtro
+
+        # Escapadas disponibles para el filtro
         context['escapadas'] = Escapada.objects.all().order_by('-fecha_ini')
-        
-        # Customizar la paginación
-        page_obj = context['page_obj']
-        if page_obj.has_other_pages():
-            paginator = context['paginator']
+
+        # Mejorar la paginación personalizada
+        page_obj = context.get('page_obj')
+        if page_obj and page_obj.has_other_pages():
+            paginator = context.get('paginator')
             num_pages = paginator.num_pages
             current_page = page_obj.number
-            
-            # Determinar rango de páginas a mostrar
             if num_pages <= 7:
-                # Si hay 7 o menos páginas, mostrar todas
                 page_range = range(1, num_pages + 1)
             else:
-                # Siempre incluir primera, última y 2 páginas alrededor de la actual
                 if current_page <= 4:
                     page_range = list(range(1, 6)) + ['...', num_pages]
                 elif current_page >= num_pages - 3:
                     page_range = [1, '...'] + list(range(num_pages - 4, num_pages + 1))
                 else:
                     page_range = [1, '...'] + list(range(current_page - 1, current_page + 2)) + ['...', num_pages]
-            
             context['page_range'] = page_range
-        
+
+        # Pasar los parámetros actuales de búsqueda y filtros a la plantilla
+        context['query'] = self.request.GET.get('q', '')
+        context['escapada_filter'] = self.request.GET.get('escapada', '')
+        context['pago_filter'] = self.request.GET.get('pago', '')
+
         return context
 
 class PersonaCreateView(CreateView):
     model = Persona
-    fields = '__all__'
-    template_name = 'persona/persona_form.html'
-    success_url = reverse_lazy('persona_list')
+    form_class = PersonaInscripcionForm
+    template_name = "persona/persona_form.html"
+    success_url = reverse_lazy("persona_list")  # Ajusta a tu URL
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        # En form.save() ya se creará la persona e inscripción (si aplica)
+        return response
 
 class PersonaDetailView(DetailView):
     model = Persona
@@ -894,198 +997,672 @@ class PersonaDetailView(DetailView):
 
 class PersonaUpdateView(UpdateView):
     model = Persona
-    fields = '__all__'
-    template_name = 'persona/persona_form.html'
-    success_url = reverse_lazy('persona_list')
+    form_class = PersonaInscripcionForm
+    template_name = "persona/persona_form.html"
+    success_url = reverse_lazy("persona_list")
+
+    def form_valid(self, form):
+        return super().form_valid(form)
 
 class PersonaDeleteView(DeleteView):
     model = Persona
     template_name = 'persona/persona_confirm_delete.html'
     success_url = reverse_lazy('persona_list')
 
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib import messages
-from django.views.decorators.http import require_http_methods
-from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from .models import Persona, Escapada, Inscripcion
-
-# Cambiado de require_POST a require_http_methods para permitir tanto GET como POST
-@require_http_methods(["GET", "POST"])
-def inscribir_personas(request):
+@method_decorator(csrf_exempt, name='dispatch')
+class InscribirPersonasView(View):
     """
-    Vista para inscribir una o múltiples personas en una o múltiples escapadas.
+    Vista basada en clase para inscribir una o múltiples personas en una o múltiples escapadas.
+    Con decorador CSRF exempt para solucionar problemas de 405 Method Not Allowed.
     """
-    if request.method != 'POST':
-        # Si alguien accede por GET, redirigir a la lista de personas
+    
+    def get(self, request, *args, **kwargs):
+        """Redirige a la lista de personas si se accede por GET"""
         return redirect('persona_list')
         
-    personas_ids = request.POST.get('personas_ids', '').split(',')
-    escapadas_ids = request.POST.get('escapadas_ids', '').split(',')
-    tipo_habitacion = request.POST.get('tipo_habitacion', '')
-    
-    if not personas_ids or not escapadas_ids:
-        messages.error(request, 'Debes seleccionar al menos una persona y una escapada.')
-        return redirect('persona_list')
-    
-    # Contadores para el mensaje de resultado
-    inscripciones_creadas = 0
-    inscripciones_existentes = 0
-    errores = 0
-    
-    for persona_id in personas_ids:
+    def post(self, request, *args, **kwargs):
+        """Procesa la inscripción de personas en escapadas"""
         try:
-            persona = Persona.objects.get(pk=persona_id.strip())
+            # Imprimir los datos recibidos para diagnóstico
+            print(f"POST data recibida: {request.POST}")
             
-            for escapada_id in escapadas_ids:
+            personas_ids = request.POST.get('personas_ids', '').split(',')
+            escapadas_ids = request.POST.get('escapadas_ids', '').split(',')
+            tipo_habitacion = request.POST.get('tipo_habitacion', '')
+            
+            if not personas_ids or not escapadas_ids:
+                messages.error(request, 'Debes seleccionar al menos una persona y una escapada.')
+                return redirect('persona_list')
+            
+            # Contadores para el mensaje de resultado
+            inscripciones_creadas = 0
+            inscripciones_existentes = 0
+            errores = 0
+            
+            for persona_id in personas_ids:
+                if not persona_id.strip():
+                    continue
+                    
                 try:
-                    escapada = Escapada.objects.get(pk=int(escapada_id.strip()))
+                    persona = Persona.objects.get(pk=persona_id.strip())
                     
-                    # Verificar si ya existe una inscripción
-                    inscripcion_existente = Inscripcion.objects.filter(
-                        persona=persona,
-                        escapada=escapada
-                    ).exists()
-                    
-                    if inscripcion_existente:
-                        inscripciones_existentes += 1
-                        continue
-                    
-                    # Crear nueva inscripción
-                    Inscripcion.objects.create(
-                        persona=persona,
-                        escapada=escapada,
-                        fecha_inscripcion=timezone.now(),
-                        tipo_habitacion_preferida=tipo_habitacion if tipo_habitacion else None,
-                        ha_pagado=False,
-                        a_pagar=0,
-                        pagado=0,
-                        pendiente=0
-                    )
-                    inscripciones_creadas += 1
-                    
-                    # Actualizar contador de inscritos en la escapada
-                    escapada.num_inscritos = Inscripcion.objects.filter(escapada=escapada).count()
-                    escapada.save(update_fields=['num_inscritos'])
-                    
-                except Escapada.DoesNotExist:
+                    for escapada_id in escapadas_ids:
+                        if not escapada_id.strip():
+                            continue
+                            
+                        try:
+                            escapada = Escapada.objects.get(pk=int(escapada_id.strip()))
+                            
+                            # Verificar si ya existe una inscripción
+                            inscripcion_existente = Inscripcion.objects.filter(
+                                persona=persona,
+                                escapada=escapada
+                            ).exists()
+                            
+                            if inscripcion_existente:
+                                inscripciones_existentes += 1
+                                continue
+                            
+                            # Crear nueva inscripción
+                            Inscripcion.objects.create(
+                                persona=persona,
+                                escapada=escapada,
+                                fecha_inscripcion=timezone.now(),
+                                tipo_habitacion_preferida=tipo_habitacion if tipo_habitacion else None,
+                                ha_pagado=False,
+                                a_pagar=0,
+                                pagado=0,
+                                pendiente=0
+                            )
+                            inscripciones_creadas += 1
+                            
+                            # Actualizar contador de inscritos en la escapada
+                            escapada.num_inscritos = Inscripcion.objects.filter(escapada=escapada).count()
+                            escapada.save(update_fields=['num_inscritos'])
+                            
+                        except Escapada.DoesNotExist:
+                            errores += 1
+                            print(f"Error: Escapada con ID {escapada_id} no existe")
+                        except Exception as e:
+                            errores += 1
+                            print(f"Error al inscribir: {str(e)}")
+                
+                except Persona.DoesNotExist:
                     errores += 1
+                    print(f"Error: Persona con ID {persona_id} no existe")
                 except Exception as e:
                     errores += 1
-                    print(f"Error al inscribir: {str(e)}")
-        
-        except Persona.DoesNotExist:
-            errores += 1
+                    print(f"Error general: {str(e)}")
+            
+            # Generar mensaje de resultado
+            if inscripciones_creadas > 0:
+                mensaje = f"Se han creado {inscripciones_creadas} inscripciones correctamente."
+                if inscripciones_existentes > 0:
+                    mensaje += f" {inscripciones_existentes} inscripciones ya existían."
+                if errores > 0:
+                    mensaje += f" No se pudieron procesar {errores} inscripciones debido a errores."
+                messages.success(request, mensaje)
+            elif inscripciones_existentes > 0:
+                mensaje = f"No se han creado nuevas inscripciones. {inscripciones_existentes} inscripciones ya existían."
+                if errores > 0:
+                    mensaje += f" Además, hubo {errores} errores."
+                messages.warning(request, mensaje)
+            else:
+                messages.error(request, f"No se pudo completar ninguna inscripción. Se encontraron {errores} errores.")
+            
+            return redirect('persona_list')
+            
         except Exception as e:
-            errores += 1
-            print(f"Error general: {str(e)}")
-    
-    # Generar mensaje de resultado
-    if inscripciones_creadas > 0:
-        mensaje = f"Se han creado {inscripciones_creadas} inscripciones correctamente."
-        if inscripciones_existentes > 0:
-            mensaje += f" {inscripciones_existentes} inscripciones ya existían."
-        if errores > 0:
-            mensaje += f" No se pudieron procesar {errores} inscripciones debido a errores."
-        messages.success(request, mensaje)
-    elif inscripciones_existentes > 0:
-        mensaje = f"No se han creado nuevas inscripciones. {inscripciones_existentes} inscripciones ya existían."
-        if errores > 0:
-            mensaje += f" Además, hubo {errores} errores."
-        messages.warning(request, mensaje)
-    else:
-        messages.error(request, f"No se pudo completar ninguna inscripción. Se encontraron {errores} errores.")
-    
-    return redirect('persona_list')
+            print(f"Error crítico en InscribirPersonasView: {str(e)}")
+            messages.error(request, f"Se produjo un error inesperado: {str(e)}")
+            return redirect('persona_list')
 
-# Configuración del logger
 logger = logging.getLogger(__name__)
 
-def importar_personas(request):
-    """Vista para importar personas desde un archivo CSV sin guardar configuraciones de mapeo."""
-    escapadas = Escapada.objects.all().order_by('-fecha_ini')
+class CSVImportError(Exception):
+    """Custom exception for CSV import errors"""
+    pass
+
+class CSVValidator:
+    """Handles CSV validation logic"""
     
-    if request.method == 'POST':
-        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.content_type == 'application/json'
-        if is_ajax:
-            try:
-                escapada_id = request.POST.get('escapada')
-                # Intentamos obtener el CSV desde request.FILES o desde la sesión si ya se almacenó
-                csv_file = request.FILES.get('csv_file')
-                if not csv_file and 'csv_file_data' in request.session:
-                    # Crear un objeto similar a un archivo a partir del contenido almacenado
-                    csv_content = request.session['csv_file_data']
-                    csv_file = BytesIO(csv_content.encode('utf-8'))
-                    csv_file.name = "temp.csv"
-                mapping_json = request.POST.get('mapping')
-                only_add_to_db = request.POST.get('only_add_to_db') == 'true'
+    @staticmethod
+    def validate_required_fields(mapeo: Dict[str, str], fieldnames: List[str]) -> List[str]:
+        """Validate that all required mapped fields exist in CSV"""
+        errors = []
+        for field_name, column_name in mapeo.items():
+            if column_name and column_name not in fieldnames:
+                errors.append(f"La columna '{column_name}' mapeada al campo '{field_name}' no existe en el CSV.")
+        return errors
+
+    @staticmethod
+    def validate_mandatory_fields(mapeo: Dict[str, str]) -> List[str]:
+        """Validate that mandatory fields are mapped"""
+        required_fields = ['dni', 'nombre']
+        missing = [field for field in required_fields if field not in mapeo or not mapeo[field]]
+        return [f"Faltan mapeos para campos obligatorios: {', '.join(missing)}"] if missing else []
+
+    @staticmethod
+    def validate_row_data(row: Dict[str, str], mapeo: Dict[str, str], row_index: int) -> List[str]:
+        """Validate individual row data"""
+        errors = []
+        
+        # Validate mandatory fields
+        dni_col = mapeo.get('dni')
+        nombre_col = mapeo.get('nombre')
+        nombre_completo_col = mapeo.get('nombre_completo')
+        
+        if not dni_col or not row.get(dni_col, '').strip():
+            errors.append(f"Fila {row_index}: Falta el DNI/Pasaporte (campo obligatorio).")
+        
+        if (not nombre_col or not row.get(nombre_col, '').strip()) and \
+           (not nombre_completo_col or not row.get(nombre_completo_col, '').strip()):
+            errors.append(f"Fila {row_index}: Falta el Nombre (obligatorio directamente o a través de 'Nombre completo').")
+
+        # Validate data types
+        for field, col_name in mapeo.items():
+            if not col_name or not row.get(col_name, '').strip():
+                continue
                 
-                if not csv_file or not mapping_json:
-                    return JsonResponse({
-                        'success': False,
-                        'errors': ['Falta el archivo CSV o la configuración de mapeo.']
-                    })
-                
-                escapada = None
-                if escapada_id and not only_add_to_db:
-                    try:
-                        escapada = Escapada.objects.get(id=escapada_id)
-                    except Escapada.DoesNotExist:
-                        return JsonResponse({
-                            'success': False,
-                            'errors': [f'No se encontró la escapada con ID {escapada_id}.']
-                        })
-                
+            value = row.get(col_name, '').strip()
+            
+            # Validate decimal fields
+            if field in ['a_pagar', 'pagado', 'pendiente', 'importe_pendiente']:
                 try:
-                    mapeo = json.loads(mapping_json)
-                except json.JSONDecodeError:
-                    return JsonResponse({
-                        'success': False, 
-                        'errors': ['El formato del mapeo es inválido.']
-                    })
+                    clean_value = value.replace(',', '.').replace('€', '').replace('$', '').strip()
+                    if clean_value:
+                        Decimal(clean_value)
+                except:
+                    errors.append(
+                        f"Fila {row_index}: El campo '{field}' debe ser un número decimal válido. "
+                        f"Valor actual: '{value}'"
+                    )
+            
+            # Validate integer fields
+            elif field in ['anio_pringado', 'num_familiares']:
+                if value:
+                    try:
+                        # Intentar convertir a float primero y luego a int
+                        float_value = float(value)
+                        int_value = int(float_value)
+                        # Verificar que el float y el int son iguales (no hay decimales)
+                        if float_value == int_value:
+                            continue
+                        errors.append(
+                            f"Fila {row_index}: El campo '{field}' debe ser un número entero. "
+                            f"Valor actual: '{value}'"
+                        )
+                    except ValueError:
+                        pass
+            
+            # Validate date fields
+            elif field == 'fecha_nacimiento' and value:
+                is_valid_date = False
+                for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y"]:
+                    try:
+                        datetime.datetime.strptime(value, fmt)
+                        is_valid_date = True
+                        break
+                    except ValueError:
+                        continue
+                if not is_valid_date:
+                    errors.append(
+                        f"Fila {row_index}: El campo 'fecha_nacimiento' tiene un formato inválido. "
+                        f"Valor actual: '{value}'"
+                    )
+        
+        return errors
+
+class DataProcessor:
+    """Handles data processing and transformation"""
+    
+    # Campos que pertenecen al modelo Inscripcion
+    INSCRIPCION_FIELDS = {
+        'ha_pagado',
+        'tipo_habitacion_preferida',
+        'importe_pendiente',
+        'a_pagar',
+        'pagado',
+        'pendiente',
+        'tipo_alojamiento_deseado',
+        'num_familiares',
+        'es_anfitrion_inscripcion'
+    }
+
+    # Campos que pertenecen al modelo Persona
+    PERSONA_FIELDS = {
+        'dni',
+        'nombre',
+        'apellidos',
+        'fecha_nacimiento',
+        'correo',
+        'estado',
+        'sexo',
+        'prefijo',
+        'telefono',
+        'es_pringado',
+        'anio_pringado'
+    }
+
+    @staticmethod
+    def parse_boolean(value: Any) -> bool:
+        """Convert various input formats to boolean"""
+        if not value:
+            return False
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            value = value.strip().lower()
+            return value in ['sí', 'si', 'true', '1', 'yes', 'y', 'verdadero']
+        return bool(value)
+
+    @staticmethod
+    def parse_decimal(value: str) -> Optional[Decimal]:
+        """Parse decimal values with error handling"""
+        if not value:
+            return Decimal('0')
+        try:
+            clean_value = value.replace(',', '.').replace('€', '').replace('$', '').strip()
+            return Decimal(clean_value) if clean_value else Decimal('0')
+        except:
+            return Decimal('0')
+
+    @staticmethod
+    def parse_date(value: str) -> Optional[datetime.date]:
+        """Parse date values with multiple format support"""
+        if not value:
+            return None
+        for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y"]:
+            try:
+                return datetime.datetime.strptime(value, fmt).date()
+            except ValueError:
+                continue
+        return None
+
+    @classmethod
+    def process_row(cls, row: Dict[str, str], mapeo: Dict[str, str]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """Process a single row of data according to mapping"""
+        persona_data = {}
+        inscripcion_data = {}
+        
+        for field, col_name in mapeo.items():
+            if not col_name:
+                continue
+            
+            value = row.get(col_name, '').strip()
+            
+            # Caso especial: nombre completo
+            if field == 'nombre_completo' and value:
+                parts = value.split(' ', 1)
+                if not persona_data.get('nombre'):
+                    persona_data['nombre'] = parts[0]
+                if len(parts) > 1 and not persona_data.get('apellidos'):
+                    persona_data['apellidos'] = parts[1]
+                continue
+
+            # Determinar si el campo pertenece a Inscripcion o Persona
+            if field in cls.INSCRIPCION_FIELDS:
+                if field in ['ha_pagado', 'es_anfitrion_inscripcion']:
+                    inscripcion_data[field.replace('_inscripcion', '')] = cls.parse_boolean(value)
+                elif field in ['importe_pendiente', 'a_pagar', 'pagado', 'pendiente']:
+                    inscripcion_data[field] = cls.parse_decimal(value)
+                elif field in ['num_familiares']:
+                    inscripcion_data[field] = int(value) if value.isdigit() else None
+                else:
+                    inscripcion_data[field] = value or None
+            elif field in cls.PERSONA_FIELDS:
+                if field == 'fecha_nacimiento':
+                    persona_data[field] = cls.parse_date(value)
+                elif field in ['es_pringado', 'es_anfitrion']:
+                    persona_data[field] = cls.parse_boolean(value)
+                elif field == 'anio_pringado':
+                    persona_data[field] = int(value) if value.isdigit() else None
+                else:
+                    persona_data[field] = value or None
+
+        return persona_data, inscripcion_data
+
+class CSVImporter:
+    """Main class for handling CSV imports"""
+    
+    def __init__(self, csv_file, escapada=None, mapeo=None, only_add_to_db=False):
+        self.csv_file = csv_file
+        self.escapada = escapada
+        self.mapeo = mapeo or {}
+        self.only_add_to_db = only_add_to_db
+        self.validator = CSVValidator()
+        self.processor = DataProcessor()
+        self.warnings = []
+        self.dnis_procesados = set()
+        logger.info(f"""
+        Inicializando importador:
+        - Archivo: {csv_file.name if csv_file else 'No file'}
+        - Escapada: {escapada}
+        - Mapeo: {mapeo}
+        - Solo BD: {only_add_to_db}
+        """)
+
+    def validate_csv(self, reader) -> List[str]:
+        """Validate CSV structure and content"""
+        logger.info("Iniciando validación del CSV")
+        errors = []
+        
+        if not reader.fieldnames:
+            logger.error("CSV sin encabezados")
+            errors.append('El archivo CSV está vacío o mal formateado.')
+            return errors
+        
+        logger.info(f"Columnas encontradas: {reader.fieldnames}")
+        
+        # Validate required fields
+        field_errors = self.validator.validate_required_fields(self.mapeo, reader.fieldnames)
+        if field_errors:
+            logger.error(f"Errores en campos requeridos: {field_errors}")
+            errors.extend(field_errors)
+        
+        # Validate mandatory fields
+        mandatory_errors = self.validator.validate_mandatory_fields(self.mapeo)
+        if mandatory_errors:
+            logger.error(f"Errores en campos obligatorios: {mandatory_errors}")
+            errors.extend(mandatory_errors)
+        
+        return errors
+
+    def process_rows(self, reader) -> Tuple[int, int, int]:
+        """Process all rows in the CSV"""
+        logger.info("Iniciando procesamiento de filas")
+        personas_nuevas = 0
+        personas_actualizadas = 0
+        inscripciones_creadas = 0
+        
+        for i, row in enumerate(reader, 1):
+            logger.info(f"Procesando fila {i}")
+            
+            # Skip duplicates
+            dni = row.get(self.mapeo.get('dni', ''), '').strip()
+            if dni in self.dnis_procesados:
+                logger.warning(f"DNI duplicado encontrado: {dni}")
+                self.warnings.append(f"DNI duplicado en el CSV: {dni}. Solo se procesó la primera ocurrencia.")
+                continue
+            
+            self.dnis_procesados.add(dni)
+            logger.info(f"Procesando DNI: {dni}")
+            
+            try:
+                persona_data, inscripcion_data = self.processor.process_row(row, self.mapeo)
+                logger.debug(f"""
+                Datos procesados para DNI {dni}:
+                - Persona: {persona_data}
+                - Inscripción: {inscripcion_data}
+                """)
                 
-                result = procesar_csv(csv_file, escapada, mapeo, only_add_to_db)
-                return JsonResponse(result)
+                # Create or update person
+                persona_obj = self.create_or_update_person(persona_data)
+                if persona_obj.id not in self.dnis_procesados:
+                    if persona_obj._state.adding:
+                        personas_nuevas += 1
+                        logger.info(f"Nueva persona creada: {dni}")
+                    else:
+                        personas_actualizadas += 1
+                        logger.info(f"Persona actualizada: {dni}")
                 
+                # Create inscription if needed
+                if self.escapada and not self.only_add_to_db:
+                    logger.info(f"Intentando crear inscripción para {dni}")
+                    created = self.create_inscription(persona_obj, inscripcion_data)
+                    if created:
+                        inscripciones_creadas += 1
+                        logger.info(f"Inscripción creada para {dni}")
+                    else:
+                        logger.info(f"No se creó inscripción para {dni}")
+                    
             except Exception as e:
-                logger.exception(f"Error en importación AJAX: {e}")
+                logger.error(f"Error processing row for DNI {dni}: {str(e)}", exc_info=True)
+                self.warnings.append(f"Error al procesar DNI {dni}: {str(e)}")
+                
+        logger.info(f"""
+        Resultados del procesamiento:
+        - Personas nuevas: {personas_nuevas}
+        - Personas actualizadas: {personas_actualizadas}
+        - Inscripciones creadas: {inscripciones_creadas}
+        """)
+        return personas_nuevas, personas_actualizadas, inscripciones_creadas
+
+    @transaction.atomic
+    def create_or_update_person(self, persona_data):
+        """Create or update a person record"""
+        dni = persona_data.get('dni')
+        logger.info(f"Creando/actualizando persona con DNI: {dni}")
+        logger.debug(f"Datos de persona: {persona_data}")
+        
+        try:
+            persona = Persona.objects.get(dni=dni)
+            logger.info(f"Persona encontrada: {dni}, actualizando...")
+            for k, v in persona_data.items():
+                if k not in ['dni', 'id'] and v is not None:
+                    setattr(persona, k, v)
+            persona.save()
+            logger.info(f"Persona actualizada: {dni}")
+        except Persona.DoesNotExist:
+            logger.info(f"Persona no encontrada: {dni}, creando nueva...")
+            persona = Persona.objects.create(**persona_data)
+            logger.info(f"Nueva persona creada: {dni}")
+        
+        return persona
+
+    def create_inscription(self, persona, inscripcion_data) -> bool:
+        """Create inscription if conditions are met"""
+        logger.info(f"Intentando crear inscripción para persona: {persona.dni}")
+        logger.debug(f"Datos de inscripción: {inscripcion_data}")
+        
+        pendiente = inscripcion_data.get('pendiente', Decimal('0'))
+        
+        if pendiente and pendiente > 0:
+            logger.warning(f"La persona {persona.dni} tiene importe pendiente: {pendiente}")
+            self.warnings.append(
+                f"La persona {persona.dni} tiene un importe pendiente de {pendiente} y no se inscribió."
+            )
+            return False
+            
+        if not Inscripcion.objects.filter(persona=persona, escapada=self.escapada).exists():
+            logger.info(f"Creando nueva inscripción para {persona.dni}")
+            try:
+                Inscripcion.objects.create(
+                    persona=persona,
+                    escapada=self.escapada,
+                    **inscripcion_data
+                )
+                logger.info(f"Inscripción creada para {persona.dni}")
+                return True
+            except Exception as e:
+                logger.error(f"Error al crear inscripción para {persona.dni}: {e}", exc_info=True)
+                self.warnings.append(f"Error al crear inscripción para {persona.dni}: {e}")
+                return False
+        else:
+            logger.info(f"La persona {persona.dni} ya tiene una inscripción para esta escapada")
+            return False
+
+    def import_data(self) -> Dict[str, Any]:
+        """Main method to handle the import process"""
+        logger.info("Iniciando importación de datos")
+        try:
+            # Prepare CSV reader
+            self.csv_file.seek(0)
+            csv_text = TextIOWrapper(self.csv_file, encoding='utf-8')
+            reader = csv.DictReader(csv_text)
+            
+            # Validate CSV structure
+            validation_errors = self.validate_csv(reader)
+            if validation_errors:
+                logger.error(f"Errores de validación: {validation_errors}")
+                return {
+                    'success': False,
+                    'errors': validation_errors
+                }
+            
+            # Validate row data
+            all_rows = list(reader)
+            logger.info(f"Total de filas a procesar: {len(all_rows)}")
+            
+            row_errors = []
+            for i, row in enumerate(all_rows, start=1):
+                errors = self.validator.validate_row_data(row, self.mapeo, i)
+                if errors:
+                    logger.error(f"Errores en fila {i}: {errors}")
+                    row_errors.extend(errors)
+            
+            if row_errors:
+                logger.error(f"Se encontraron {len(row_errors)} errores de validación")
+                return {
+                    'success': False,
+                    'errors': [f"Se encontraron {len(row_errors)} errores de validación:"] + row_errors
+                }
+            
+            # Process data
+            logger.info("Iniciando procesamiento de filas")
+            personas_nuevas, personas_actualizadas, inscripciones_creadas = self.process_rows(all_rows)
+            
+            result = {
+                'success': True,
+                'total_imported': personas_nuevas + personas_actualizadas,
+                'new_created': personas_nuevas,
+                'updated': personas_actualizadas,
+                'inscriptions_created': inscripciones_creadas,
+                'warnings': self.warnings
+            }
+            logger.info(f"Importación completada: {result}")
+            return result
+            
+        except Exception as e:
+            logger.exception(f"Error en la importación: {str(e)}")
+            return {
+                'success': False,
+                'errors': [f"Error en la importación: {str(e)}"]
+            }
+            
+def importar_personas(request):
+    """View for handling person imports"""
+    if request.method != 'POST':
+        return render(request, 'persona/importar_personas.html', {
+            'escapadas': Escapada.objects.all().order_by('-fecha_ini'),
+            'campos_persona': get_campos_persona()
+        })
+
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    if not is_ajax:
+        return handle_traditional_import(request)
+
+    try:
+        # Get parameters
+        escapada_id = request.POST.get('escapada')
+        csv_file = request.FILES.get('csv_file')
+        mapping_json = request.POST.get('mapping')
+        only_add_to_db = request.POST.get('only_add_to_db') == 'true'
+
+        # Try to get CSV from session if not in request
+        if not csv_file and 'csv_file_data' in request.session:
+            csv_content = request.session['csv_file_data']
+            csv_file = BytesIO(csv_content.encode('utf-8'))
+            csv_file.name = "temp.csv"
+
+        # Validate basic requirements
+        if not csv_file or not mapping_json:
+            return JsonResponse({
+                'success': False,
+                'errors': ['Falta el archivo CSV o la configuración de mapeo.']
+            })
+
+        # Parse mapping
+        try:
+            mapeo = json.loads(mapping_json)
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'errors': ['El formato del mapeo es inválido.']
+            })
+
+        # Get escapada if needed
+        escapada = None
+        if escapada_id and not only_add_to_db:
+            try:
+                escapada = Escapada.objects.get(id=escapada_id)
+            except Escapada.DoesNotExist:
                 return JsonResponse({
                     'success': False,
-                    'errors': [f'Error inesperado: {str(e)}']
+                    'errors': [f'No se encontró la escapada con ID {escapada_id}.']
                 })
-        else:
-            # Lógica tradicional, similar a la anterior, sin mapeo guardado
-            form = CSVImportForm(request.POST, request.FILES)
-            if form.is_valid():
-                escapada = form.cleaned_data.get('escapada')
-                csv_file = request.FILES['csv_file']
-                only_add_to_db = form.cleaned_data.get('only_add_to_db', False)
-                # Usar un mapeo predeterminado
-                mapeo = {
-                    "dni": "DNI (si eres europeo) o Pasaporte",
-                    "nombre": "Nombre",
-                    "apellidos": "Apellidos",
-                    "telefono": "Teléfono",
-                    "correo": "Correo",
-                    "fecha_nacimiento": "Fecha de nacimiento",
-                    "sexo": "Sexo",
-                    "prefijo": "Prefijo",
-                }
-                result = procesar_csv(csv_file, escapada, mapeo, only_add_to_db)
-                if result['success']:
-                    messages.success(request, f"Importación finalizada con éxito. Se importaron {result['total_imported']} personas.")
-                else:
-                    for error in result['errors']:
-                        messages.error(request, error)
-                return redirect('importar_personas')
-            else:
-                for field, errors in form.errors.items():
-                    for error in errors:
-                        messages.error(request, f"Error en {field}: {error}")
-                return redirect('importar_personas')
+
+        # Initialize importer and process data
+        importer = CSVImporter(
+            csv_file=csv_file,
+            escapada=escapada,
+            mapeo=mapeo,
+            only_add_to_db=only_add_to_db
+        )
+        
+        result = importer.import_data()
+        return JsonResponse(result)
+
+    except Exception as e:
+        logger.exception(f"Error en importación AJAX: {e}")
+        return JsonResponse({
+            'success': False,
+            'errors': [f'Error inesperado: {str(e)}']
+        })
+
+def handle_traditional_import(request):
+    """Handle traditional (non-AJAX) form submission"""
+    form = CSVImportForm(request.POST, request.FILES)
+    if not form.is_valid():
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, f"Error en {field}: {error}")
+        return redirect('importar_personas')
+
+    # Get form data
+    escapada = form.cleaned_data.get('escapada')
+    csv_file = request.FILES['csv_file']
+    only_add_to_db = form.cleaned_data.get('only_add_to_db', False)
+
+    # Use default mapping for traditional import
+    mapeo = {
+        "dni": "DNI (si eres europeo) o Pasaporte",
+        "nombre": "Nombre",
+        "apellidos": "Apellidos",
+        "telefono": "Teléfono",
+        "correo": "Correo",
+        "fecha_nacimiento": "Fecha de nacimiento",
+        "sexo": "Sexo",
+        "prefijo": "Prefijo",
+    }
+
+    # Initialize importer and process data
+    importer = CSVImporter(
+        csv_file=csv_file,
+        escapada=escapada,
+        mapeo=mapeo,
+        only_add_to_db=only_add_to_db
+    )
     
-    # Definir estructura para el frontend sobre los campos disponibles
-    campos_persona = [
+    result = importer.import_data()
+    
+    if result['success']:
+        messages.success(
+            request,
+            f"Importación finalizada con éxito. "
+            f"Se importaron {result['total_imported']} personas."
+        )
+        for warning in result.get('warnings', []):
+            messages.warning(request, warning)
+    else:
+        for error in result['errors']:
+            messages.error(request, error)
+
+    return redirect('importar_personas')
+
+def get_campos_persona() -> List[Dict[str, Any]]:
+    """Return the structure of available person fields for the frontend"""
+    return [
         {
             'id': 'dni',
             'nombre': 'DNI/Pasaporte',
@@ -1157,6 +1734,7 @@ def importar_personas(request):
             'tipo': 'decimal',
             'requerido': False,
             'ejemplo': '150.00',
+            'inscripcion': True,
         },
         {
             'id': 'pagado',
@@ -1165,6 +1743,7 @@ def importar_personas(request):
             'tipo': 'decimal',
             'requerido': False,
             'ejemplo': '75.50',
+            'inscripcion': True,
         },
         {
             'id': 'pendiente',
@@ -1173,6 +1752,7 @@ def importar_personas(request):
             'tipo': 'decimal',
             'requerido': False,
             'ejemplo': '74.50',
+            'inscripcion': True,
         },
         {
             'id': 'estado',
@@ -1205,6 +1785,7 @@ def importar_personas(request):
             'tipo': 'texto',
             'requerido': False,
             'ejemplo': 'Individual',
+            'inscripcion': True,
         },
         {
             'id': 'num_familiares',
@@ -1213,23 +1794,6 @@ def importar_personas(request):
             'tipo': 'entero',
             'requerido': False,
             'ejemplo': '2',
-        },
-        {
-            'id': 'es_anfitrion',
-            'nombre': 'Es anfitrión',
-            'descripcion': 'Valores aceptados: sí, no, true, false, 1, 0',
-            'tipo': 'booleano',
-            'requerido': False,
-            'ejemplo': 'no',
-        },
-        # Campos específicos para inscripción
-        {
-            'id': 'ha_pagado',
-            'nombre': 'Ha pagado (inscripción)',
-            'descripcion': 'Si ha pagado la inscripción completa',
-            'tipo': 'booleano',
-            'requerido': False,
-            'ejemplo': 'sí',
             'inscripcion': True,
         },
         {
@@ -1250,289 +1814,49 @@ def importar_personas(request):
             'ejemplo': '50.00',
             'inscripcion': True,
         },
-        {
-            'id': 'es_anfitrion_inscripcion',
-            'nombre': 'Es anfitrión (inscripción)',
-            'descripcion': 'Si es anfitrión en esta escapada',
-            'tipo': 'booleano',
-            'requerido': False,
-            'ejemplo': 'no',
-            'inscripcion': True,
-        },
-        # Campo especial para nombre completo
-        {
-            'id': 'nombre_completo',
-            'nombre': 'Nombre completo',
-            'descripcion': 'Nombre y apellidos juntos (se dividirá automáticamente)',
-            'tipo': 'texto',
-            'requerido': False,
-            'ejemplo': 'Juan Pérez García',
-            'especial': True,
-        },
     ]
-    
-    return render(request, 'persona/importar_personas.html', {
-        'escapadas': escapadas,
-        'campos_persona': campos_persona,
-    })
 
-def procesar_csv(csv_file, escapada, mapeo, only_add_to_db=False):
-    try:
-        # Abrir el archivo CSV usando TextIOWrapper
-        # Si csv_file es un objeto InMemoryUploadedFile, se trabaja directamente
-        csv_file.seek(0)
-        csv_text = TextIOWrapper(csv_file, encoding='utf-8')
-        reader = csv.DictReader(csv_text)
-        if not reader.fieldnames:
-            return {
-                'success': False,
-                'errors': ['El archivo CSV está vacío o mal formateado.']
-            }
-
-        # Verificar que las columnas mapeadas existan en el CSV
-        for field_name, column_name in mapeo.items():
-            if column_name and column_name not in reader.fieldnames:
-                return {
-                    'success': False,
-                    'errors': [f"La columna '{column_name}' mapeada al campo '{field_name}' no existe en el CSV."]
-                }
-
-        # Validar campos obligatorios
-        required_fields = ['dni', 'nombre']
-        missing_required = [field for field in required_fields if field not in mapeo or not mapeo[field]]
-        if missing_required:
-            return {
-                'success': False,
-                'errors': [f"Faltan mapeos para campos obligatorios: {', '.join(missing_required)}"]
-            }
-
-        # Cargar todas las filas y validarlas
-        all_rows = list(reader)
-        validation_errors = []
-        warnings = []
-
-        for i, row in enumerate(all_rows, start=1):
-            row_errors = validate_row(row, mapeo, i)
-            if row_errors:
-                validation_errors.extend(row_errors)
-
-        if validation_errors:
-            return {
-                'success': False,
-                'errors': [f"Se encontraron {len(validation_errors)} errores de validación. Ningún dato fue importado."] + validation_errors
-            }
-
-        # Seguimiento de importación
-        personas_nuevas = 0
-        personas_actualizadas = 0
-        inscripciones_creadas = 0
-        dnis_procesados = set()
-
-        with transaction.atomic():
-            for row in all_rows:
-                persona_data, inscripcion_data = process_row_data(row, mapeo)
-                
-                # Evitar duplicados en el mismo CSV
-                dni = persona_data.get('dni')
-                if dni in dnis_procesados:
-                    warnings.append(f"DNI duplicado en el CSV: {dni}. Solo se procesó la primera ocurrencia.")
-                    continue
-                dnis_procesados.add(dni)
-                
-                # Actualizar o crear la Persona
-                try:
-                    persona_obj = Persona.objects.get(dni=dni)
-                    for k, v in persona_data.items():
-                        if k not in ['dni', 'id'] and v is not None:
-                            setattr(persona_obj, k, v)
-                    persona_obj.save()
-                    personas_actualizadas += 1
-                except Persona.DoesNotExist:
-                    persona_obj = Persona(**persona_data)
-                    persona_obj.save()
-                    personas_nuevas += 1
-
-                # Crear la inscripción solo si corresponde
-                if escapada and not only_add_to_db:
-                    pendiente_val = inscripcion_data.get('pendiente')
-                    if pendiente_val is None or Decimal(pendiente_val) <= 0:
-                        if not Inscripcion.objects.filter(persona=persona_obj, escapada=escapada).exists():
-                            insc_data = {
-                                'persona': persona_obj,
-                                'escapada': escapada,
-                                **inscripcion_data
-                            }
-                            insc_obj = Inscripcion(**insc_data)
-                            insc_obj.save()
-                            inscripciones_creadas += 1
-                    else:
-                        warnings.append(
-                            f"La persona {dni} tiene un importe pendiente de {pendiente_val} y no se inscribió."
-                        )
-        return {
-            'success': True,
-            'total_imported': personas_nuevas + personas_actualizadas,
-            'new_created': personas_nuevas,
-            'updated': personas_actualizadas,
-            'inscriptions_created': inscripciones_creadas,
-            'warnings': warnings
-        }
-    except Exception as e:
-        logger.exception(f"Error procesando CSV: {e}")
-        return {
-            'success': False,
-            'errors': [f"Error procesando el CSV: {str(e)}"]
-        }
-
-def process_row_data(row, mapeo):
-    """
-    Procesa los datos de una fila según el mapeo para crear objetos Persona e Inscripcion.
-    """
-    persona_data = {}
-    inscripcion_data = {}
-    
-    for field, col_name in mapeo.items():
-        if not col_name:
-            continue
-        value = row.get(col_name, '').strip()
-        
-        # Campos de inscripción
-        if field in ['ha_pagado', 'tipo_habitacion_preferida', 'importe_pendiente', 'es_anfitrion_inscripcion']:
-            if field == 'es_anfitrion_inscripcion':
-                inscripcion_data['es_anfitrion'] = parse_boolean(value)
-            elif field == 'ha_pagado':
-                inscripcion_data[field] = parse_boolean(value)
-            elif field == 'importe_pendiente' and value:
-                try:
-                    clean_value = value.replace(',', '.').replace('€', '').replace('$', '').strip()
-                    inscripcion_data[field] = Decimal(clean_value) if clean_value else Decimal('0')
-                except:
-                    inscripcion_data[field] = Decimal('0')
-            else:
-                inscripcion_data[field] = value or None
-            continue
-        
-        # Caso especial: nombre completo
-        if field == 'nombre_completo' and value:
-            parts = value.split(' ', 1)
-            if not persona_data.get('nombre'):
-                persona_data['nombre'] = parts[0]
-            if len(parts) > 1 and not persona_data.get('apellidos'):
-                persona_data['apellidos'] = parts[1]
-            continue
-            
-        # Procesar según tipo de campo
-        if field in ['a_pagar', 'pagado', 'pendiente'] and value:
-            try:
-                clean_value = value.replace(',', '.').replace('€', '').replace('$', '').strip()
-                persona_data[field] = Decimal(clean_value) if clean_value else Decimal('0')
-            except:
-                persona_data[field] = Decimal('0')
-        elif field in ['anio_pringado', 'num_familiares'] and value.isdigit():
-            persona_data[field] = int(value)
-        elif field == 'fecha_nacimiento' and value:
-            for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y"]:
-                try:
-                    persona_data[field] = datetime.datetime.strptime(value, fmt).date()
-                    break
-                except ValueError:
-                    continue
-        elif field in ['es_pringado', 'es_anfitrion']:
-            persona_data[field] = parse_boolean(value)
-        else:
-            persona_data[field] = value or None
-    
-    return persona_data, inscripcion_data
-
-def parse_boolean(value):
-    """
-    Convierte un valor en booleano considerando formatos comunes.
-    """
-    if not value:
-        return False
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        value = value.strip().lower()
-        return value in ['sí', 'si', 'true', '1', 'yes', 'y', 'verdadero']
-    return bool(value)
-
-def validate_row(row, mapeo, row_index):
-    """
-    Valida una fila del CSV según el mapeo establecido.
-    """
-    errors = []
-    dni_col = mapeo.get('dni')
-    nombre_col = mapeo.get('nombre')
-    nombre_completo_col = mapeo.get('nombre_completo')
-    
-    if not dni_col or not row.get(dni_col, '').strip():
-        errors.append(f"Fila {row_index}: Falta el DNI/Pasaporte (campo obligatorio).")
-    
-    if not nombre_col or not row.get(nombre_col, '').strip():
-        if not nombre_completo_col or not row.get(nombre_completo_col, '').strip():
-            errors.append(f"Fila {row_index}: Falta el Nombre (obligatorio directamente o a través de 'Nombre completo').")
-    
-    for field, col_name in mapeo.items():
-        if not col_name or not row.get(col_name, '').strip():
-            continue
-        value = row.get(col_name, '').strip()
-        if field in ['a_pagar', 'pagado', 'pendiente', 'importe_pendiente']:
-            try:
-                clean_value = value.replace(',', '.').replace('€', '').replace('$', '').strip()
-                if clean_value:
-                    Decimal(clean_value)
-            except:
-                errors.append(f"Fila {row_index}: El campo '{field}' debe ser un número decimal válido. Valor actual: '{value}'")
-        elif field in ['anio_pringado', 'num_familiares']:
-            if value and not value.isdigit():
-                errors.append(f"Fila {row_index}: El campo '{field}' debe ser un número entero. Valor actual: '{value}'")
-        elif field == 'fecha_nacimiento' and value:
-            is_valid_date = False
-            for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%m/%d/%Y"]:
-                try:
-                    datetime.datetime.strptime(value, fmt)
-                    is_valid_date = True
-                    break
-                except ValueError:
-                    continue
-            if not is_valid_date:
-                errors.append(f"Fila {row_index}: El campo 'fecha_nacimiento' tiene un formato inválido. Valor actual: '{value}'")
-    return errors
-
-@require_http_methods(["POST"])
 def inspeccionar_csv(request):
-    """API para obtener una vista previa del CSV sin importarlo y almacenar su contenido en sesión"""
+    """API endpoint for previewing CSV content without importing"""
     try:
         if not request.FILES.get('csv_file'):
-            return JsonResponse({'error': 'No se proporcionó ningún archivo'}, status=400)
+            return JsonResponse({
+                'error': 'No se proporcionó ningún archivo'
+            }, status=400)
             
         csv_file = request.FILES['csv_file']
-        # Almacenar el contenido del CSV en sesión (útil para pasos posteriores)
+        
+        # Store CSV content in session for later use
         request.session['csv_file_data'] = csv_file.read().decode('utf-8')
         csv_file.seek(0)
         
+        # Preview CSV content
         csv_text = TextIOWrapper(csv_file.file, encoding='utf-8')
         reader = csv.DictReader(csv_text)
-        columns = reader.fieldnames if reader.fieldnames else []
-        preview_rows = []
+        
+        preview_data = {
+            'success': True,
+            'columns': reader.fieldnames or [],
+            'preview_rows': [],
+            'total_columns': len(reader.fieldnames) if reader.fieldnames else 0,
+            'sample_rows': 0
+        }
+        
+        # Get preview rows (limited to 5)
         for i, row in enumerate(reader):
             if i >= 5:
                 break
-            preview_rows.append(row)
+            preview_data['preview_rows'].append(row)
+            preview_data['sample_rows'] += 1
+            
+        return JsonResponse(preview_data)
         
-        return JsonResponse({
-            'success': True,
-            'columns': columns,
-            'preview_rows': preview_rows,
-            'total_columns': len(columns) if columns else 0,
-            'sample_rows': len(preview_rows)
-        })
     except Exception as e:
         logger.error(f"Error inspeccionando CSV: {str(e)}", exc_info=True)
-        return JsonResponse({'error': str(e)}, status=500)
-
-
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+        
 # -------------------
 # VIEWS PARA ESCAPADA_ALOJAMIENTO
 # -------------------
@@ -1545,7 +1869,6 @@ class EscapadaAlojamientoListView(TemplateView):
         # Recupera todas las escapadas
         context['escapadas'] = Escapada.objects.all()
         return context
-
 
 class EscapadaAlojamientoDetailView(DetailView):
     model = EscapadaAlojamiento
@@ -1574,7 +1897,6 @@ class EscapadaAlojamientoDeleteView(DeleteView):
         # Redirigir al detalle de la escapada luego de eliminar la asignación.
         # Se asume que el objeto "EscapadaAlojamiento" tiene una referencia a la escapada (self.object.escapada)
         return reverse_lazy('escapada_detail', kwargs={'pk': self.object.escapada.pk})
-
 
 class EscapadaInscripcionView(View):
     template_name = 'escapada/inscripcion_escapada.html'
@@ -1616,6 +1938,7 @@ class EscapadaInscripcionView(View):
                     habitacion_id = request.session.get('habitacion_seleccionada')
                     try:
                         habitacion = Habitacion.objects.get(id=habitacion_id)
+                        habitacion.esta_disponible()
                         return self._show_companeros_form(request, escapada, persona, habitacion)
                     except Habitacion.DoesNotExist:
                         messages.error(request, "La habitación seleccionada ya no está disponible.")
@@ -1626,6 +1949,43 @@ class EscapadaInscripcionView(View):
 
         # Vista inicial: formulario de DNI
         return render(request, self.template_name, {'escapada': escapada})
+
+    def _procesar_cancelacion_reserva(self, request, escapada):
+        dni = request.session.get('persona_dni', request.POST.get('dni'))
+        habitacion_id = request.POST.get('habitacion_id')
+        
+        if not dni or not habitacion_id:
+            messages.error(request, "Datos incompletos para cancelar la reserva.")
+            return redirect('escapada_inscripcion', pk=escapada.pk)
+        
+        try:
+            persona = Persona.objects.get(dni=dni)
+            habitacion = Habitacion.objects.get(id=habitacion_id)
+            habitacion.esta_disponible()
+            
+            # Si la reserva es temporal y la persona es quien la realizó:
+            if habitacion.estado == 'reservada' and habitacion.reservado_por and habitacion.reservado_por.id == persona.id:
+                habitacion.estado = 'disponible'
+                habitacion.reservado_por = None
+                habitacion.reservado_hasta = None
+                habitacion.save()
+                messages.success(request, "Tu reserva temporal ha sido cancelada correctamente.")
+            
+            # Si la persona tiene una asignación permanente:
+            reserva = ReservaHabitacion.objects.filter(persona=persona, habitacion=habitacion).first()
+            if reserva:
+                reserva.delete()
+                # Actualizamos el estado de la habitación si ya no hay ocupantes
+                if habitacion.ocupacion_actual() == 0:
+                    habitacion.estado = 'disponible'
+                    habitacion.save()
+                messages.success(request, "Tu asignación de habitación ha sido cancelada correctamente.")
+            
+            return redirect('escapada_inscripcion', pk=escapada.pk)
+                    
+        except (Persona.DoesNotExist, Habitacion.DoesNotExist):
+            messages.error(request, "No se pudo encontrar la reserva especificada.")
+            return redirect('escapada_inscripcion', pk=escapada.pk)
 
     def post(self, request, pk):
         """Procesa los diferentes formularios según el paso"""
@@ -1642,6 +2002,8 @@ class EscapadaInscripcionView(View):
             return self._procesar_confirmacion_companeros(request, escapada)
         elif 'reservar_habitacion' in request.POST:
             return self._procesar_reserva_temporal(request, escapada)
+        elif 'cancelar_reserva' in request.POST:
+            return self._procesar_cancelacion_reserva(request, escapada)
         else:
             messages.error(request, "Acción no reconocida")
             return redirect('escapada_inscripcion', pk=escapada.pk)
@@ -1649,6 +2011,91 @@ class EscapadaInscripcionView(View):
     def _procesar_verificacion_dni(self, request, escapada):
         """Procesa la verificación inicial del DNI"""
         dni = request.POST.get('dni', '').upper().strip()
+        
+        try:
+            persona = Persona.objects.get(dni=dni)
+            
+            # NUEVO: Verificar primero si la persona ya tiene una habitación asignada
+            reserva_habitacion = ReservaHabitacion.objects.filter(
+                persona=persona,
+                habitacion__escapada_alojamiento__escapada_id=escapada.pk
+            ).first()
+            
+            if reserva_habitacion:
+                # La persona ya tiene una habitación asignada permanentemente
+                habitacion = reserva_habitacion.habitacion
+                companeros = ReservaHabitacion.objects.filter(
+                    habitacion=habitacion
+                ).exclude(persona=persona).select_related('persona')
+                
+                # Calcular plazas disponibles
+                plazas_ocupadas = habitacion.ocupacion_actual()
+                plazas_disponibles = habitacion.capacidad - plazas_ocupadas
+                
+                return render(request, self.template_name, {
+                    'escapada': escapada,
+                    'persona': persona,
+                    'habitacion': habitacion,
+                    'reserva': reserva_habitacion,
+                    'companeros': companeros,
+                    'plazas_disponibles': plazas_disponibles,
+                    'mostrar_reserva_actual': True  # Esta es la clave para mostrar la vista de reserva
+                })
+            
+            # NUEVO: Verificar si tiene una reserva temporal activa
+            habitacion_reservada = Habitacion.objects.filter(
+                reservado_por=persona,
+                escapada_alojamiento__escapada_id=escapada.pk,
+                estado='reservada',
+                reservado_hasta__gt=timezone.now()
+            ).first()
+            
+            if habitacion_reservada:
+                # Calcular ocupación actual y plazas disponibles
+                ocupantes = habitacion_reservada.ocupantes
+                plazas_disponibles = habitacion_reservada.capacidad - len(ocupantes)
+                
+                return render(request, self.template_name, {
+                    'escapada': escapada,
+                    'persona': persona,
+                    'habitacion': habitacion_reservada,
+                    'ocupantes_actuales': ocupantes,
+                    'plazas_disponibles': plazas_disponibles,
+                    'expiracion_reserva': habitacion_reservada.reservado_hasta,
+                    'mostrar_form_companeros': True,  # Mostrar formulario de compañeros
+                    'puede_reservar': False  # Ya está reservada
+                })
+            
+            # Continuar con la lógica normal si no tiene habitación
+            try:
+                inscripcion = Inscripcion.objects.get(persona=persona, escapada=escapada)
+                
+                # Verificar pago pendiente
+                if inscripcion.pendiente > 0:
+                    return render(request, self.template_name, {
+                        'escapada': escapada,
+                        'persona': persona,
+                        'inscripcion': inscripcion,
+                        'pendiente_pago': True
+                    })
+                
+                # Continuar con flujo normal (selección de capacidad)
+                request.session['inscripcion_token'] = f"{persona.pk}_{escapada.pk}_{timezone.now().timestamp()}"
+                request.session['persona_dni'] = persona.dni
+                request.session['inscripcion_step'] = 'elegir_capacidad'
+                
+                return self._show_capacidad_selection(request, escapada, persona)
+                
+            except Inscripcion.DoesNotExist:
+                return render(request, self.template_name, {
+                    'escapada': escapada,
+                    'persona': persona,
+                    'no_inscrito': True
+                })
+                
+        except Persona.DoesNotExist:
+            messages.error(request, "No encontramos ninguna persona registrada con ese DNI.")
+            return redirect('escapada_inscripcion', pk=escapada.pk)
         
         try:
             persona = Persona.objects.get(dni=dni)
@@ -1802,8 +2249,7 @@ class EscapadaInscripcionView(View):
             Habitacion.objects
             .filter(escapada_alojamiento__escapada=escapada)
             .filter(
-                Q(estado='disponible') | 
-                Q(estado='reservada', reservado_hasta__lt=timezone.now())
+                Q(estado='disponible') | Q(estado='reservada')
             )
             .values_list('capacidad', flat=True)
             .distinct()
@@ -1813,13 +2259,11 @@ class EscapadaInscripcionView(View):
         habitaciones_capacidad = (
             Habitacion.objects
             .filter(escapada_alojamiento__escapada=escapada, capacidad=capacidad)
-            .filter(
-                Q(estado='disponible') | 
-                Q(estado='reservada', reservado_hasta__lt=timezone.now())
-            )
+            .filter( Q(estado='disponible') | Q(estado='reservada') )
             .annotate(ocupacion_actual=Count('reservahabitacion'))
             .filter(ocupacion_actual__lt=F('capacidad'))
         )
+
 
 
         
@@ -1885,6 +2329,7 @@ class EscapadaInscripcionView(View):
             'mostrar_selector_capacidad': True,
             'capacidades_disponibles': capacidades_con_nombres
         })
+   
     def _procesar_seleccion_habitacion(self, request, escapada):
         """Procesa la selección de una habitación específica"""
         dni = request.session.get('persona_dni')
@@ -1897,6 +2342,7 @@ class EscapadaInscripcionView(View):
         try:
             persona = Persona.objects.get(dni=dni)
             habitacion = Habitacion.objects.get(id=habitacion_id)
+            habitacion.esta_disponible()
             
             # Verificar que la habitación pertenezca a esta escapada
             if habitacion.escapada_alojamiento.escapada_id != escapada.id:
@@ -1908,6 +2354,14 @@ class EscapadaInscripcionView(View):
                 messages.error(request, "La habitación seleccionada ya no está disponible.")
                 capacidad = request.session.get('capacidad_seleccionada')
                 return self._show_habitaciones(request, escapada, persona, capacidad)
+            
+            # MODIFICACIÓN: Reservar automáticamente la habitación por 3 minutos
+            if habitacion.reservar_temporalmente(persona, minutos=3):
+                # La reserva se realizó con éxito
+                messages.info(request, "Habitación reservada automáticamente por 3 minutos. Completa tu inscripción antes de que expire.")
+            else:
+                # La reserva no se pudo realizar
+                messages.warning(request, "No se pudo reservar la habitación temporalmente, pero puedes continuar con el proceso.")
             
             # Guardar habitación seleccionada
             request.session['habitacion_seleccionada'] = habitacion.id
@@ -1958,53 +2412,77 @@ class EscapadaInscripcionView(View):
         """Procesa la reserva temporal de una habitación"""
         dni = request.session.get('persona_dni')
         habitacion_id = request.session.get('habitacion_seleccionada')
-        
+
         if not dni or not habitacion_id:
             messages.error(request, "Ha ocurrido un error en tu sesión. Por favor, inténtalo nuevamente.")
             return redirect('escapada_inscripcion', pk=escapada.pk)
-        
+
         try:
             persona = Persona.objects.get(dni=dni)
             habitacion = Habitacion.objects.get(id=habitacion_id)
-            
-            # Realizar la reserva temporal
+            habitacion.esta_disponible()
+
+            # Llamada al método que reserva la habitación por 15 minutos.
             if habitacion.reservar_temporalmente(persona):
-                # Actualizar información de la persona como anfitrión
+                # Opcional: Actualiza la inscripción para marcar al usuario como anfitrión
                 inscripcion = Inscripcion.objects.get(persona=persona, escapada=escapada)
                 inscripcion.es_anfitrion = True
                 inscripcion.save()
-                
+
                 persona.es_anfitrion = True
                 persona.save()
-                
-                messages.success(request, f"Has reservado la habitación por 15 minutos. Ahora puedes agregar a tus compañeros.")
+
+                messages.success(request, "Has reservado la habitación por 15 minutos. Ahora puedes agregar a tus compañeros.")
                 return self._show_companeros_form(request, escapada, persona, habitacion)
             else:
                 messages.error(request, "No se pudo reservar la habitación. Es posible que ya no esté disponible.")
                 capacidad = request.session.get('capacidad_seleccionada')
                 return self._show_habitaciones(request, escapada, persona, capacidad)
-                
+
         except (Persona.DoesNotExist, Habitacion.DoesNotExist, Inscripcion.DoesNotExist):
             messages.error(request, "Ha ocurrido un error en tu sesión. Por favor, inténtalo nuevamente.")
             return redirect('escapada_inscripcion', pk=escapada.pk)
-    
+
     def _procesar_confirmacion_companeros(self, request, escapada):
         """Procesa la confirmación final con compañeros"""
         dni_anfitrion = request.session.get('persona_dni')
         habitacion_id = request.session.get('habitacion_seleccionada')
         dnis_companeros = request.POST.getlist('dni_companero')
+        desde_reserva_actual = request.POST.get('desde_reserva_actual') == 'true'
         
-        if not dni_anfitrion or not habitacion_id:
+        if not dni_anfitrion:
             messages.error(request, "Ha ocurrido un error en tu sesión. Por favor, inténtalo nuevamente.")
             return redirect('escapada_inscripcion', pk=escapada.pk)
         
         try:
             anfitrion = Persona.objects.get(dni=dni_anfitrion)
+            
+            # Si viene desde la vista de reserva actual, usamos el habitacion_id del POST
+            if desde_reserva_actual:
+                habitacion_id = request.POST.get('habitacion_id')
+            
+            if not habitacion_id:
+                messages.error(request, "No se especificó una habitación. Por favor, selecciona una habitación.")
+                return redirect('escapada_inscripcion', pk=escapada.pk)
+                
             habitacion = Habitacion.objects.get(id=habitacion_id)
             
-            # Verificar disponibilidad
-            plazas_disponibles = habitacion.plazas_disponibles()
-            if plazas_disponibles <= 0:
+            # Verificar disponibilidad - ahora consideramos si ya tiene reserva
+            reserva_existente = ReservaHabitacion.objects.filter(persona=anfitrion, habitacion=habitacion).exists()
+            
+            # Obtenemos todos los ocupantes actuales de la habitación
+            ocupantes_actuales = []
+            for reserva in ReservaHabitacion.objects.filter(habitacion=habitacion):
+                ocupantes_actuales.append(reserva.persona)
+                
+            # Calculamos plazas disponibles considerando a los ocupantes actuales
+            plazas_disponibles = habitacion.capacidad - len(ocupantes_actuales)
+            
+            # Si el anfitrión no está entre los ocupantes, hay que contar su plaza también
+            if anfitrion not in ocupantes_actuales and not reserva_existente:
+                plazas_disponibles -= 1
+                
+            if plazas_disponibles < 0:
                 messages.error(request, "La habitación ya no tiene plazas disponibles.")
                 return redirect('escapada_inscripcion', pk=escapada.pk)
             
@@ -2021,25 +2499,54 @@ class EscapadaInscripcionView(View):
             # Verificar DNIs de compañeros
             companeros_validos = []
             dnis_invalidos = []
-
-            # Verificar si el anfitrión ya tiene asignada la habitación
-            if not ReservaHabitacion.objects.filter(persona=anfitrion, habitacion=habitacion).exists():
-                # Asigna la habitación creando una reserva
-                ReservaHabitacion.objects.create(persona=anfitrion, habitacion=habitacion)
-
             
-            # Luego procesar compañeros
+            # Filtrar DNIs vacíos y duplicados
+            dnis_companeros = [dni.strip().upper() for dni in dnis_companeros if dni.strip()]
+            dnis_companeros = list(filter(None, dnis_companeros))  # Eliminar valores vacíos
+            
+            # Verificar si hay suficientes plazas para los compañeros
+            if len(dnis_companeros) > plazas_disponibles:
+                messages.error(request, f"Solo hay {plazas_disponibles} plazas disponibles, pero intentaste añadir {len(dnis_companeros)} compañeros.")
+                return self._show_companeros_form(request, escapada, anfitrion, habitacion)
+                
+            # Verificar DNIs de compañeros
             for dni in dnis_companeros:
-                if not dni.strip():
-                    continue
-                    
                 try:
-                    companero = Persona.objects.get(dni=dni.strip().upper())
+                    companero = Persona.objects.get(dni=dni)
+                    
+                    # Comprobar que no sea el anfitrión
+                    if companero.dni == anfitrion.dni:
+                        dnis_invalidos.append({
+                            'dni': dni,
+                            'motivo': "No puedes añadirte a ti mismo como compañero."
+                        })
+                        continue
+                        
+                    # Verificar que no tenga ya otra habitación asignada en esta escapada
+                    otra_habitacion = ReservaHabitacion.objects.filter(
+                        persona=companero,
+                        habitacion__escapada_alojamiento__escapada=escapada
+                    ).exclude(habitacion=habitacion).first()
+                    
+                    if otra_habitacion:
+                        dnis_invalidos.append({
+                            'dni': dni,
+                            'motivo': f"{companero.nombre} ya tiene asignada otra habitación en esta escapada."
+                        })
+                        continue
+                    
+                    # Verificar que el compañero ya no esté en esta habitación
+                    if ReservaHabitacion.objects.filter(persona=companero, habitacion=habitacion).exists():
+                        dnis_invalidos.append({
+                            'dni': dni,
+                            'motivo': f"{companero.nombre} ya está asignado a esta habitación."
+                        })
+                        continue
                     
                     # Verificar inscripción y pago
                     try:
                         inscripcion = Inscripcion.objects.get(persona=companero, escapada=escapada)
-                        if inscripcion.ha_pagado:
+                        if inscripcion.pendiente <= 0:  # Asumiendo que pendiente=0 significa ha_pagado
                             companeros_validos.append(companero)
                         else:
                             dnis_invalidos.append({
@@ -2058,56 +2565,279 @@ class EscapadaInscripcionView(View):
                         'motivo': "Persona no encontrada en el sistema."
                     })
             
-            # Si hay DNIs inválidos, mostrar errores
+            # Si hay DNIs inválidos, mostrar errores y volver al formulario
             if dnis_invalidos:
-                return render(request, self.template_name, {
-                    'escapada': escapada,
-                    'persona': anfitrion,
-                    'habitacion': habitacion,
-                    'dnis_invalidos': dnis_invalidos,
-                    'companeros_validos': companeros_validos,
-                    'plazas_disponibles': plazas_disponibles,
-                    'ocupantes_actuales': habitacion.persona_set.all(),
-                    'mostrar_form_companeros': True
-                })
+                return self._show_companeros_form(request, escapada, anfitrion, habitacion, dnis_invalidos)
+            
+            # Verificar de nuevo que no haya habido cambios en la disponibilidad
+            if len(companeros_validos) > plazas_disponibles:
+                messages.error(request, "La disponibilidad de la habitación ha cambiado. Por favor, intenta nuevamente.")
+                return self._show_habitaciones(request, escapada, anfitrion, habitacion.capacidad)
+            
+            # Asignar anfitrión a la habitación si aún no tiene reserva
+            if not reserva_existente:
+                ReservaHabitacion.objects.create(
+                    persona=anfitrion, 
+                    habitacion=habitacion, 
+                    es_anfitrion=True
+                )
             
             # Asignar compañeros a la habitación
             for companero in companeros_validos:
-                companero.asignar_habitacion(habitacion)
+                ReservaHabitacion.objects.create(
+                    persona=companero,
+                    habitacion=habitacion,
+                    es_anfitrion=False
+                )
             
-            # Finalizar reserva si existe
-            if habitacion.estado == 'reservada' and habitacion.reservado_por and habitacion.reservado_por.id == anfitrion.id:
-                habitacion.estado = 'ocupada' if habitacion.plazas_disponibles() == 0 else 'disponible'
-                habitacion.reservado_por = None
-                habitacion.reservado_hasta = None
-                habitacion.save()
+            # Actualizar estado de la habitación
+            ocupacion_actual = ReservaHabitacion.objects.filter(habitacion=habitacion).count()
+            if ocupacion_actual >= habitacion.capacidad:
+                habitacion.estado = 'ocupada'
+            else:
+                # Si estaba reservada por anfitrión, ahora será disponible (pero con ocupantes)
+                if habitacion.estado == 'reservada' and habitacion.reservado_por and habitacion.reservado_por.id == anfitrion.id:
+                    habitacion.estado = 'disponible'
+                    habitacion.reservado_por = None
+                    habitacion.reservado_hasta = None
             
-            # Limpiar sesión
-            del request.session['inscripcion_token']
-            del request.session['persona_dni']
-            del request.session['inscripcion_step']
+            habitacion.save()
             
-            for key in ['capacidad_seleccionada', 'habitacion_seleccionada']:
-                if key in request.session:
-                    del request.session[key]
-            
-            # Mensaje de éxito
-            messages.success(
-                request, 
-                f"¡Asignación completa! Te has registrado junto con {len(companeros_validos)} "
-                f"compañeros en la habitación {habitacion.numero}."
-            )
-            
-            # Redirigir a la página de confirmación
-            return render(request, self.template_name, {
-                'escapada': escapada,
-                'confirmacion_final': True,
-                'habitacion': habitacion,
-                'anfitrion': anfitrion,
-                'companeros': companeros_validos
-            })
+            # Limpiar sesión si no viene desde una reserva actual
+            if not desde_reserva_actual:
+                for key in ['inscripcion_token', 'persona_dni', 'inscripcion_step', 
+                            'capacidad_seleccionada', 'habitacion_seleccionada']:
+                    request.session.pop(key, None)
+                    
+                # Mensaje de éxito
+                mensaje = "¡Asignación completa! "
+                if len(companeros_validos) > 0:
+                    mensaje += f"Has añadido {len(companeros_validos)} compañero{'s' if len(companeros_validos) > 1 else ''} a la habitación."
+                else:
+                    mensaje += "Te has registrado en la habitación correctamente."
+                    
+                messages.success(request, mensaje)
                 
-        except (Persona.DoesNotExist, Habitacion.DoesNotExist):
-            messages.error(request, "Ha ocurrido un error en tu sesión. Por favor, inténtalo nuevamente.")
+                # Redirigir a la página de confirmación
+                return render(request, self.template_name, {
+                    'escapada': escapada,
+                    'confirmacion_final': True,
+                    'habitacion': habitacion,
+                    'anfitrion': anfitrion,
+                    'companeros': ReservaHabitacion.objects.filter(habitacion=habitacion).exclude(persona=anfitrion).select_related('persona')
+                })
+            else:
+                # Si viene desde una reserva actual, redirigimos a la misma vista con los datos actualizados
+                messages.success(request, f"Has añadido {len(companeros_validos)} compañero{'s' if len(companeros_validos) > 1 else ''} a tu habitación.")
+                return redirect('escapada_inscripcion', pk=escapada.pk)
+                    
+        except (Persona.DoesNotExist, Habitacion.DoesNotExist) as e:
+            messages.error(request, f"Ha ocurrido un error en tu sesión. {str(e)}")
             return redirect('escapada_inscripcion', pk=escapada.pk)
+
+    def _show_companeros_form(self, request, escapada, persona, habitacion, dnis_invalidos=None):
+        """Muestra el formulario para añadir compañeros"""
+        # Verificar si la habitación está reservada por otro
+        if (habitacion.estado == 'reservada' and 
+            habitacion.reservado_por and 
+            habitacion.reservado_por.id != persona.id and
+            habitacion.reservado_hasta and 
+            habitacion.reservado_hasta > timezone.now()):
+            messages.error(request, "La habitación ha sido reservada por otra persona. Por favor, selecciona otra habitación.")
+            capacidad = request.session.get('capacidad_seleccionada', habitacion.capacidad)
+            return self._show_habitaciones(request, escapada, persona, capacidad)
         
+        # Obtener las reservas existentes para esta habitación
+        reservas = ReservaHabitacion.objects.filter(habitacion=habitacion).select_related('persona')
+        ocupantes = [reserva.persona for reserva in reservas]
+        
+        # Verificar si el usuario actual ya tiene una reserva
+        tiene_reserva = persona in ocupantes
+        
+        # Calcular plazas disponibles
+        plazas_disponibles = habitacion.capacidad - len(ocupantes)
+        
+        # Si el usuario no tiene reserva, se restará su plaza de las disponibles
+        plazas_companeros = plazas_disponibles
+        if not tiene_reserva:
+            plazas_companeros -= 1
+        
+        # Asegurarse de que no haya valores negativos
+        plazas_companeros = max(0, plazas_companeros)
+        
+        # Verificar si puede reservar (si no está reservada o si él es quien la reservó)
+        puede_reservar = habitacion.estado != 'reservada' or (
+            habitacion.reservado_por and habitacion.reservado_por.id == persona.id
+        )
+        
+        # Verificar si tiene reserva temporal activa
+        expiracion_reserva = None
+        if habitacion.estado == 'reservada' and habitacion.reservado_por and habitacion.reservado_por.id == persona.id:
+            expiracion_reserva = habitacion.reservado_hasta
+        
+        return render(request, self.template_name, {
+            'escapada': escapada,
+            'persona': persona,
+            'habitacion': habitacion,
+            'plazas_disponibles': plazas_disponibles,
+            'plazas_companeros': plazas_companeros,
+            'puede_reservar': puede_reservar,
+            'expiracion_reserva': expiracion_reserva,
+            'dnis_invalidos': dnis_invalidos,
+            'mostrar_form_companeros': True
+        })
+    
+@require_POST
+def reservar_habitacion_ajax(request):
+    # Se espera que en POST se envíen: habitacion_id y, opcionalmente, el DNI de la persona.
+    habitacion_id = request.POST.get('habitacion_id')
+    dni = request.POST.get('dni')
+    if not habitacion_id or not dni:
+        return JsonResponse({'error': 'Información incompleta'}, status=400)
+    try:
+        persona = Persona.objects.get(dni=dni)
+        habitacion = Habitacion.objects.get(id=habitacion_id)
+        habitacion.esta_disponible()
+    except (Persona.DoesNotExist, Habitacion.DoesNotExist):
+        return JsonResponse({'error': 'Datos no encontrados'}, status=404)
+    
+    # Verificamos disponibilidad
+    if not habitacion.esta_disponible():
+        return JsonResponse({'error': 'La habitación ya no está disponible'}, status=400)
+    
+    # Realizamos la reserva temporal (15 minutos)
+    habitacion.estado = 'reservada'
+    habitacion.reservado_por = persona
+    habitacion.reservado_hasta = timezone.now() + datetime.timedelta(minutes=15)
+    habitacion.save()
+    
+    # Calculamos el tiempo restante (en segundos)
+    tiempo_restante = int((habitacion.reservado_hasta - timezone.now()).total_seconds())
+    return JsonResponse({
+        'success': True,
+        'tiempo_restante': tiempo_restante,
+        'reservado_hasta': habitacion.reservado_hasta.isoformat()
+    })
+
+class CheckinListView(View):  # Quitamos LoginRequiredMixin
+    template_name = 'escapada/checkin_list.html'
+    
+    def get(self, request, escapada_id):
+        escapada = get_object_or_404(Escapada, pk=escapada_id)
+        
+        # Obtener búsqueda
+        query = request.GET.get('q', '').strip()
+        
+        # Base queryset de inscripciones
+        inscripciones = Inscripcion.objects.filter(escapada=escapada)\
+            .select_related('persona')\
+            .prefetch_related(
+                'persona__reservahabitacion_set',
+                'persona__reservahabitacion_set__habitacion',
+                'persona__reservahabitacion_set__habitacion__escapada_alojamiento',
+                'persona__reservahabitacion_set__habitacion__escapada_alojamiento__alojamiento'
+            )
+        
+        # Aplicar filtro de búsqueda si existe
+        if query:
+            inscripciones = inscripciones.filter(
+                Q(persona__dni__icontains=query) |
+                Q(persona__nombre__icontains=query) |
+                Q(persona__apellidos__icontains=query)
+            )
+        
+        # Filtros de estado
+        estado = request.GET.get('estado')
+        if estado == 'pendiente':
+            inscripciones = inscripciones.filter(checkin_completado=False)
+        elif estado == 'completado':
+            inscripciones = inscripciones.filter(checkin_completado=True)
+        
+        # Estadísticas
+        total_inscritos = inscripciones.count()
+        checkin_completado = inscripciones.filter(checkin_completado=True).count()
+        pendientes_checkin = total_inscritos - checkin_completado
+        
+        context = {
+            'escapada': escapada,
+            'inscripciones': inscripciones,
+            'query': query,
+            'estado': estado,
+            'total_inscritos': total_inscritos,
+            'checkin_completado': checkin_completado,
+            'pendientes_checkin': pendientes_checkin,
+        }
+        
+        # Obtener habitaciones disponibles y tipos
+        habitaciones_disponibles = []
+        for ea in escapada.escapadas_alojamiento.all():
+            habitaciones = ea.habitaciones.all()
+            for hab in habitaciones:
+                if hab.plazas_disponibles() > 0:
+                    habitaciones_disponibles.append(hab)
+
+        # Ordenar por tipo
+        habitaciones_disponibles.sort(key=lambda x: x.tipo)
+
+        # Obtener lista de tipos de habitación
+        tipos_habitacion = [
+            (tipo, nombre) for tipo, nombre in TIPO_HABITACION_CHOICES
+            if any(h.tipo == tipo for h in habitaciones_disponibles)
+        ]
+
+        context.update({
+            'habitaciones_disponibles': habitaciones_disponibles,
+            'tipos_habitacion': tipos_habitacion,
+        })
+        
+        return render(request, self.template_name, context)
+
+def realizar_checkin(request, pk):  # Quitamos el decorador @login_required
+    inscripcion = get_object_or_404(Inscripcion, pk=pk)
+    if request.method == 'POST':
+        try:
+            inscripcion.realizar_checkin()
+            messages.success(request, f"Check-in realizado correctamente para {inscripcion.persona.nombre}")
+        except Exception as e:
+            messages.error(request, f"Error al realizar el check-in: {str(e)}")
+    
+    return redirect('checkin_list', escapada_id=inscripcion.escapada.id)
+
+def cancelar_checkin(request, pk):  # Quitamos el decorador @login_required
+    inscripcion = get_object_or_404(Inscripcion, pk=pk)
+    if request.method == 'POST':
+        try:
+            inscripcion.cancelar_checkin()
+            messages.success(request, f"Check-in cancelado para {inscripcion.persona.nombre}")
+        except Exception as e:
+            messages.error(request, f"Error al cancelar el check-in: {str(e)}")
+    
+    return redirect('checkin_list', escapada_id=inscripcion.escapada.id)
+
+@require_POST
+def asignar_habitacion_checkin(request):
+    inscripcion_id = request.POST.get('inscripcion_id')
+    habitacion_id = request.POST.get('habitacion_id')
+    
+    try:
+        inscripcion = Inscripcion.objects.get(pk=inscripcion_id)
+        habitacion = Habitacion.objects.get(pk=habitacion_id)
+        habitacion.esta_disponible()
+        
+        # Crear la reserva de habitación
+        ReservaHabitacion.objects.create(
+            persona=inscripcion.persona,
+            habitacion=habitacion,
+            es_anfitrion=False
+        )
+        
+        messages.success(request, f'Habitación asignada correctamente a {inscripcion.persona.nombre}')
+        
+    except (Inscripcion.DoesNotExist, Habitacion.DoesNotExist):
+        messages.error(request, 'Error al asignar la habitación. Datos no válidos.')
+    except ValidationError as e:
+        messages.error(request, str(e))
+    except Exception as e:
+        messages.error(request, f'Error inesperado: {str(e)}')
+    
+    return redirect('checkin_list', escapada_id=inscripcion.escapada.id)

@@ -88,131 +88,6 @@
     </div>
   </section>
 
-  <!-- Sección: Alojamientos y Habitaciones agrupadas -->
-  <section class="bg-white p-6 rounded-lg shadow border">
-    <div class="flex justify-between items-center border-b pb-2 mb-4">
-      <h2 class="text-2xl font-bold text-gray-800">Habitaciones por Alojamientos y Tipo</h2>
-      {% if escapada.escapadas_alojamiento.exists %}
-        <a href="{% url 'habitacion_create' %}?escapada={{ escapada.pk }}" 
-          class="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">
-          <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Nueva Habitación
-        </a>
-      {% endif %}
-    </div>
-    
-    {% if grouped_rooms %}
-      {% for alojamiento_id, info in grouped_rooms.items %}
-        <div class="mb-6 p-4 border rounded-lg shadow-sm">
-          <div class="flex items-center justify-between border-b pb-2 mb-3">
-            <h3 class="text-xl font-bold text-gray-800">{{ info.alojamiento.nombre }}</h3>
-            <div class="flex space-x-2">
-              {% for ea in escapada.escapadas_alojamiento.all %}
-                {% if ea.alojamiento.id == info.alojamiento.id %}
-                  <a href="{% url 'habitacion_create_for_alojamiento' ea_id=ea.id %}"
-                     class="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition">
-                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Nueva Habitación
-                  </a>
-                {% endif %}
-              {% endfor %}
-              <!-- Botón de acción: Borrar asignación de alojamiento con JS confirm -->
-              <button type="button" onclick="confirmDelete('{% url 'escapada_alojamiento_delete' info.alojamiento.pk %}', 'la asignación de {{ info.alojamiento.nombre }}')" 
-                     class="text-red-600 hover:text-red-800 text-sm px-3 py-2 border border-red-300 rounded-lg">
-                <i class="fas fa-trash-alt mr-1"></i> Borrar Asignación
-              </button>
-            </div>
-          </div>
-          {% for tipo, rooms in info.rooms_by_type.items %}
-            <div class="mb-4">
-              <h4 class="text-lg font-semibold text-gray-700">Tipo: {{ tipo|capfirst }}</h4>
-              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-2">
-                {% for room in rooms %}
-                  <div class="p-4 border rounded-lg hover:shadow-md transition-shadow bg-gray-50">
-                    <div class="flex justify-between items-center mb-2">
-                      <span class="text-lg font-bold">Hab. {{ room.numero|default:"-" }}</span>
-                      <span class="text-xs font-medium px-2 py-1 rounded-full
-                        {% if room.estado == 'disponible' %}bg-green-100 text-green-800{% elif room.estado == 'reservada' %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
-                        {{ room.get_estado_display }}
-                      </span>
-                    </div>
-                    <p class="text-sm text-gray-600">Capacidad: {{ room.capacidad }}</p>
-                    <p class="text-xs text-gray-500 mt-1">Núm. ficticio: {{ room.numero_ficticio|default:"-" }}</p>
-                    
-                    <!-- Información de ocupantes -->
-                    <div class="mt-2 text-sm">
-                      <p>Ocupación: {{ room.ocupacion_actual }}/{{ room.capacidad }}</p>
-                      {% if room.ocupantes %}
-                        <details class="mt-1">
-                          <summary class="cursor-pointer text-blue-600 hover:text-blue-800">Ver ocupantes</summary>
-                          <ul class="pl-4 mt-1 text-xs">
-                            {% for ocupante in room.ocupantes %}
-                              <li>{{ ocupante.nombre }} {{ ocupante.apellidos }}</li>
-                            {% endfor %}
-                          </ul>
-                        </details>
-                      {% endif %}
-                    </div>
-                    
-                    <!-- Botones de acciones corregidos -->
-                    <div class="mt-3 flex justify-between">
-                      <a href="{% url 'habitacion_update' room.pk %}" class="text-blue-500 hover:text-blue-700 text-sm">
-                        <i class="fas fa-edit"></i> Editar
-                      </a>
-                      <button type="button" onclick="confirmDelete('{% url 'habitacion_delete' room.pk %}')"
-                        class="flex items-center justify-center w-8 h-8 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded transition-colors">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                        </svg>
-                      </button>
-
-                    </div>
-                  </div>
-                {% endfor %}
-              </div>
-            </div>
-          {% endfor %}
-        </div>
-      {% endfor %}
-    {% else %}
-      <div class="bg-gray-50 p-8 rounded-lg text-center">
-        <p class="text-gray-500 mb-4">No hay habitaciones registradas para esta escapada.</p>
-        <a href="{% url 'alojamiento_assign' escapada.pk %}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-          Asignar Alojamiento
-        </a>
-      </div>
-    {% endif %}
-  </section>
-
-  <!-- Sección: Resumen de Habitaciones -->
-  <section class="bg-white p-6 rounded-lg shadow border">
-    <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Resumen de Ocupación</h2>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="bg-blue-50 rounded-lg p-4 text-center">
-        <h3 class="text-3xl font-bold text-blue-700">{{ total_capacity }}</h3>
-        <p class="text-blue-600 mt-1">Capacidad Total</p>
-      </div>
-      <div class="bg-green-50 rounded-lg p-4 text-center">
-        <h3 class="text-3xl font-bold text-green-700">{{ occupancy }}</h3>
-        <p class="text-green-600 mt-1">Ocupación Actual</p>
-      </div>
-      <div class="bg-yellow-50 rounded-lg p-4 text-center">
-        <h3 class="text-3xl font-bold text-yellow-700">{{ available }}</h3>
-        <p class="text-yellow-600 mt-1">Plazas Disponibles</p>
-      </div>
-    </div>
-    <div class="mt-4 text-right">
-      <a href="{% url 'habitacion_list' %}?escapada={{ escapada.pk }}" class="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-        Ver Todas las Habitaciones
-      </a>
-    </div>
-  </section>
-
   <!-- Sección: Inscripciones con Paginación -->
   <section class="bg-white p-6 rounded-lg shadow border">
     <div class="flex justify-between items-center border-b pb-2 mb-4">
@@ -299,7 +174,169 @@
     {% endif %}
   </section>
 
+  <!-- Sección: Resumen de Habitaciones -->
+  <section class="bg-white p-6 rounded-lg shadow border">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Resumen de Ocupación</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-blue-50 rounded-lg p-4 text-center">
+        <h3 class="text-3xl font-bold text-blue-700">{{ total_capacity }}</h3>
+        <p class="text-blue-600 mt-1">Capacidad Total</p>
+      </div>
+      <div class="bg-green-50 rounded-lg p-4 text-center">
+        <h3 class="text-3xl font-bold text-green-700">{{ occupancy }}</h3>
+        <p class="text-green-600 mt-1">Ocupación Actual</p>
+      </div>
+      <div class="bg-yellow-50 rounded-lg p-4 text-center">
+        <h3 class="text-3xl font-bold text-yellow-700">{{ available }}</h3>
+        <p class="text-yellow-600 mt-1">Plazas Disponibles</p>
+      </div>
+    </div>
+    <div class="mt-4 text-right">
+      <a href="{% url 'habitacion_list' %}?escapada={{ escapada.pk }}" class="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+        Ver Todas las Habitaciones
+      </a>
+    </div>
+  </section>
 
+  <!-- Sección: Alojamientos y Habitaciones agrupadas -->
+  <section class="bg-white p-6 rounded-lg shadow border">
+    <div class="flex justify-between items-center border-b pb-2 mb-4">
+      <h2 class="text-2xl font-bold text-gray-800">Habitaciones por Alojamientos y Tipo</h2>
+      {% if escapada.escapadas_alojamiento.exists %}
+        <a href="{% url 'habitacion_create' %}?escapada={{ escapada.pk }}" 
+          class="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">
+          <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Nueva Habitación
+        </a>
+      {% endif %}
+    </div>
+    
+    {% if grouped_rooms %}
+      {% for alojamiento_id, info in grouped_rooms.items %}
+        <div class="mb-6 p-4 border rounded-lg shadow-sm">
+          <div class="flex items-center justify-between border-b pb-2 mb-3">
+            <h3 class="text-xl font-bold text-gray-800">{{ info.alojamiento.nombre }}</h3>
+            <div class="flex space-x-2">
+              {% for ea in escapada.escapadas_alojamiento.all %}
+                {% if ea.alojamiento.id == info.alojamiento.id %}
+                  <a href="{% url 'habitacion_create_for_alojamiento' ea_id=ea.id %}"
+                     class="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition">
+                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Nueva Habitación
+                  </a>
+                {% endif %}
+              {% endfor %}
+              <!-- Botón de acción: Borrar asignación de alojamiento con JS confirm -->
+              <button type="button" onclick="confirmDelete('{% url 'escapada_alojamiento_delete' info.alojamiento.pk %}', 'la asignación de {{ info.alojamiento.nombre }}')" 
+                     class="text-red-600 hover:text-red-800 text-sm px-3 py-2 border border-red-300 rounded-lg">
+                <i class="fas fa-trash-alt mr-1"></i> Borrar Asignación
+              </button>
+            </div>
+          </div>
+          {% for tipo, rooms in info.rooms_by_type.items %}
+            <div class="mb-4">
+              <h4 class="text-lg font-semibold text-gray-700">Tipo: {{ tipo|capfirst }}</h4>
+              
+              {% regroup rooms by capacidad as capacidad_groups %}
+              
+              {% for capacidad_group in capacidad_groups %}
+                <div class="mt-3 border-t pt-2">
+                  <button class="flex items-center justify-between w-full text-left text-md font-medium text-blue-600 hover:text-blue-800 focus:outline-none" 
+                          type="button"
+                          onclick="toggleCapacidadGroup('cap-{{ alojamiento_id }}-{{ tipo|slugify }}-{{ capacidad_group.grouper }}')">
+                    <span>
+                      <i class="fas fa-bed mr-1"></i>
+                      Capacidad: {{ capacidad_group.grouper }} personas ({{ capacidad_group.list|length }} habitaciones)
+                    </span>
+                    <svg class="w-5 h-5 transform transition-transform" id="icon-cap-{{ alojamiento_id }}-{{ tipo|slugify }}-{{ capacidad_group.grouper }}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                  </button>
+                  
+                  <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-2 overflow-hidden transition-all duration-300"
+                       id="cap-{{ alojamiento_id }}-{{ tipo|slugify }}-{{ capacidad_group.grouper }}">
+                    {% for room in capacidad_group.list %}
+                      <div class="p-4 border rounded-lg hover:shadow-md transition-shadow bg-gray-50">
+                        <div class="flex justify-between items-center mb-2">
+                          <span class="text-lg font-bold">Hab. {{ room.numero_ficticio|default:"-" }}</span>
+                          <span class="text-xs font-medium px-2 py-1 rounded-full
+                            {% if room.estado == 'disponible' %}bg-green-100 text-green-800{% elif room.estado == 'reservada' %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ room.get_estado_display }}
+                          </span>
+                        </div>
+                        <p class="text-sm text-gray-600">Capacidad: {{ room.capacidad }}</p>
+                        <p class="text-xs text-gray-500 mt-1">Número: {{ room.numero|default:"-" }}</p>
+                        
+                        <!-- Información de ocupantes -->
+                        <div class="mt-2 text-sm">
+                          <p>Ocupación: {{ room.ocupacion_actual }}/{{ room.capacidad }}</p>
+                          {% if room.ocupantes %}
+                            <details class="mt-1">
+                              <summary class="cursor-pointer text-blue-600 hover:text-blue-800">Ver ocupantes</summary>
+                              <ul class="pl-4 mt-1 text-xs">
+                                {% for ocupante in room.ocupantes %}
+                                  <li>{{ ocupante.nombre }} {{ ocupante.apellidos }}</li>
+                                {% endfor %}
+                              </ul>
+                            </details>
+                          {% endif %}
+                        </div>
+                        
+                        <!-- Botones de acciones corregidos -->
+                        <div class="mt-3 flex justify-between">
+                          <a href="{% url 'habitacion_update' room.pk %}" class="text-blue-500 hover:text-blue-700 text-sm">
+                            <i class="fas fa-edit"></i> Editar
+                          </a>
+                          <a href="{% url 'habitacion_detail' room.pk %}" 
+                            class="text-green-500 hover:text-green-700 text-sm">
+                            <i class="fas fa-users"></i> Ver Ocupantes
+                          </a>
+                          <button type="button" onclick="confirmDelete('{% url 'habitacion_delete' room.pk %}')"
+                            class="flex items-center justify-center w-8 h-8 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    {% else %}
+    <div class="bg-gray-50 p-8 rounded-lg text-center">
+      <div class="mx-auto max-w-md">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-gray-900">No hay habitaciones registradas</h3>
+        <p class="mt-1 text-sm text-gray-500">Para empezar, necesitas asignar alojamientos a esta escapada.</p>
+        <div class="mt-6">
+          <a href="{% url 'escapada_alojamiento_multiple_create' escapada.pk %}"
+             class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            Asignar Alojamientos
+          </a>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </section>
+
+  
+
+  
   <!-- Delete Confirmation Modal -->
 <div id="deleteModal" class="hidden fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
   <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
@@ -344,13 +381,97 @@
 
   <!-- Sección: Acciones Finales -->
   <footer class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
-    <a href="{% url 'escapada_update' escapada.pk %}" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors">
-      Editar Escapada
+    <!-- Botón de Check-in -->
+    <a href="{% url 'checkin_list' escapada_id=escapada.pk %}" 
+      class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition duration-200 flex items-center justify-center space-x-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+      </svg>
+      <span>Gestionar Check-ins</span>
     </a>
-    <a href="{% url 'escapada_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
-      Volver a la Lista
+
+    <!-- Botón de Inscripción -->
+    <a href="{% url 'escapada_inscripcion' escapada.pk %}" 
+      class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200 flex items-center justify-center space-x-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+      </svg>
+      <span>Realizar Inscripción</span>
+    </a>
+
+    <!-- Botón de Editar -->
+    <a href="{% url 'escapada_update' escapada.pk %}" 
+      class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition duration-200 flex items-center justify-center space-x-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+      <span>Editar Escapada</span>
+    </a>
+
+    <!-- Botón de Volver -->
+    <a href="{% url 'escapada_list' %}" 
+      class="px-6 py-3 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition duration-200 flex items-center justify-center space-x-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+      </svg>
+      <span>Volver</span>
     </a>
   </footer>
 
 </div>
+
+
+<script>
+  function toggleCapacidadGroup(id) {
+    const group = document.getElementById(id);
+    const icon = document.getElementById('icon-' + id);
+    
+    if (group.classList.contains('hidden')) {
+      // Mostrar el grupo
+      group.classList.remove('hidden');
+      group.classList.add('block');
+      icon.classList.remove('rotate-180');
+      
+      // Animación de altura
+      const height = group.scrollHeight;
+      group.style.maxHeight = height + 'px';
+      
+      // Después de la transición, eliminar la altura máxima fija
+      setTimeout(() => {
+        group.style.maxHeight = '';
+      }, 300);
+    } else {
+      // Ocultar el grupo
+      group.style.maxHeight = group.scrollHeight + 'px';
+      
+      // Forzar un reflow
+      void group.offsetWidth;
+      
+      // Iniciar transición a altura cero
+      group.style.maxHeight = '0px';
+      icon.classList.add('rotate-180');
+      
+      // Después de la transición, ocultar completamente
+      setTimeout(() => {
+        group.classList.remove('block');
+        group.classList.add('hidden');
+        group.style.maxHeight = '';
+      }, 300);
+    }
+  }
+  
+  // Inicializar todos los grupos como ocultos al cargar la página
+  document.addEventListener('DOMContentLoaded', function() {
+    const capacidadGroups = document.querySelectorAll('[id^="cap-"]');
+    capacidadGroups.forEach(group => {
+      group.classList.add('hidden');
+      group.style.maxHeight = '0px';
+      const iconId = 'icon-' + group.id;
+      const icon = document.getElementById(iconId);
+      if (icon) {
+        icon.classList.add('rotate-180');
+      }
+    });
+  });
+  </script>
 {% endblock %}

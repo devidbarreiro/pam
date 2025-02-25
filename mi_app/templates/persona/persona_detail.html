@@ -1,26 +1,54 @@
 {% extends 'base.html' %}
 {% block title %}Detalle de Persona - Gestión de Escapadas{% endblock %}
+
 {% block content %}
-<div class="max-w-4xl mx-auto bg-white shadow rounded-lg p-6">
-  <h2 class="text-2xl font-bold mb-4">Detalle de Persona</h2>
-  <div class="mb-4 space-y-2">
-    <p><strong>Nombre:</strong> {{ persona.nombre }}</p>
-    <p><strong>DNI:</strong> {{ persona.dni }}</p>
-    <p><strong>Email:</strong> {{ persona.email }}</p>
-    {% if persona.telefono %}
-      <p><strong>Teléfono:</strong> {{ persona.telefono }}</p>
-    {% endif %}
-    {% if persona.alojamiento %}
-      <p><strong>Alojamiento:</strong> {{ persona.alojamiento.nombre }}</p>
-    {% endif %}
-    {% if persona.habitacion %}
-      <p><strong>Habitación:</strong> {{ persona.habitacion.numero }}</p>
-    {% endif %}
+<div class="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-8">
+  <header class="border-b pb-4 mb-6">
+    <h1 class="text-3xl font-semibold text-gray-800">Detalle de Persona</h1>
+  </header>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <!-- Columna 1 -->
+    <div class="space-y-4">
+      <p><span class="font-semibold">Nombre:</span> {{ persona.nombre }}</p>
+      <p><span class="font-semibold">DNI:</span> {{ persona.dni }}</p>
+      <p><span class="font-semibold">Correo:</span> {{ persona.email }}</p>
+      {% if persona.telefono %}
+        <p><span class="font-semibold">Teléfono:</span> {{ persona.telefono }}</p>
+      {% endif %}
+      {% if persona.fecha_nacimiento %}
+        <p><span class="font-semibold">Fecha de Nacimiento:</span> {{ persona.fecha_nacimiento|date:"d/m/Y" }}</p>
+      {% endif %}
+    </div>
+    <!-- Columna 2 -->
+    <div class="space-y-4">
+      {% if persona.alojamiento %}
+        <p><span class="font-semibold">Alojamiento:</span> {{ persona.alojamiento.nombre }}</p>
+      {% endif %}
+      {% if persona.habitacion %}
+        <p><span class="font-semibold">Habitación:</span> {{ persona.habitacion.numero }}</p>
+      {% endif %}
+      {% if persona.sexo %}
+        <p><span class="font-semibold">Sexo:</span> {{ persona.sexo }}</p>
+      {% endif %}
+      {% if persona.estado %}
+        <p><span class="font-semibold">Estado:</span> {{ persona.estado }}</p>
+      {% endif %}
+    </div>
   </div>
-  <div class="flex space-x-4">
-    <a href="{% url 'persona_update' persona.pk %}" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Editar</a>
-    <a href="{% url 'persona_delete' persona.pk %}" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Eliminar</a>
-    <a href="{% url 'persona_list' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">Volver a la Lista</a>
-  </div>
+
+  <footer class="mt-8 border-t pt-4">
+    <div class="flex flex-col sm:flex-row sm:justify-between sm:space-x-4 space-y-2 sm:space-y-0">
+      <a href="{% url 'persona_update' persona.pk %}" class="block text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
+        Editar
+      </a>
+      <a href="{% url 'persona_delete' persona.pk %}" class="block text-center px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
+        Eliminar
+      </a>
+      <a href="{% url 'persona_list' %}" class="block text-center px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
+        Volver a la Lista
+      </a>
+    </div>
+  </footer>
 </div>
 {% endblock %}

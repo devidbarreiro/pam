@@ -2,6 +2,7 @@ from django.db import models
 from django.utils import timezone
 import datetime
 import uuid
+from django.core.exceptions import ValidationError
 
 # -----------------------------
 # 1. ESCAPADA Y ALOJAMIENTO
@@ -94,6 +95,7 @@ ESTADO_HABITACION_CHOICES = [
     ('disponible', 'Disponible'),
     ('ocupada', 'Ocupada'),
     ('reservada', 'Reservada'),
+    ('bloqueada', 'Bloqueada'),
 ]
 
 class Habitacion(models.Model):
@@ -107,11 +109,12 @@ class Habitacion(models.Model):
         on_delete=models.CASCADE,
         related_name="habitaciones"
     )
-    numero = models.CharField(max_length=20, null=True)  # Identificador o número de habitación "oficial"
+    numero = models.CharField(max_length=20, blank=True, null=True)  # Identificador o número de habitación "oficial"
     capacidad = models.PositiveIntegerField()
     tipo = models.CharField(max_length=50, choices=TIPO_HABITACION_CHOICES, default='individual')
     descripcion = models.TextField(blank=True, null=True)
     estado = models.CharField(max_length=20, choices=ESTADO_HABITACION_CHOICES, default='disponible')
+    
     
     # Opcional: reserva temporal
     reservado_por = models.ForeignKey('Persona', on_delete=models.SET_NULL, null=True, blank=True, related_name="habitaciones_reservadas")
@@ -137,7 +140,7 @@ class Habitacion(models.Model):
     def esta_disponible(self):
         if self.estado == 'ocupada':
             return False
-        
+            
         # Si está reservada, verificar si la reserva expiró
         if self.estado == 'reservada' and self.reservado_hasta:
             if timezone.now() > self.reservado_hasta:
@@ -147,8 +150,9 @@ class Habitacion(models.Model):
                 self.save()
                 return True
             return False
-            
+                
         return self.estado == 'disponible'
+
     
     def reservar_temporalmente(self, persona, minutos=15):
         """Reserva temporalmente la habitación."""
@@ -159,6 +163,7 @@ class Habitacion(models.Model):
         self.reservado_hasta = timezone.now() + datetime.timedelta(minutes=minutos)
         self.save()
         return True
+
     
     @property
     def ocupantes(self):
@@ -188,7 +193,6 @@ class Persona(models.Model):
     
     fecha_nacimiento = models.DateField(blank=True, null=True)
     correo = models.EmailField(blank=True, null=True)
-    estado = models.CharField(max_length=50, blank=True, null=True)
     sexo = models.CharField(max_length=20, blank=True, null=True)
     prefijo = models.CharField(max_length=20, blank=True, null=True)
     telefono = models.CharField(max_length=20, null=True)
@@ -244,13 +248,49 @@ class Inscripcion(models.Model):
     tipo_habitacion_preferida = models.CharField(max_length=20, blank=True, null=True)
     fecha_inscripcion = models.DateTimeField(blank=True, null=True, default=timezone.now)
     importe_pendiente = models.DecimalField(max_digits=8, decimal_places=2, default=0)
-    
+    estado = models.CharField(max_length=50, blank=True, null=True) # pasar a clase Inscripción
+
     a_pagar = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     pagado = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     pendiente = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     tipo_alojamiento_deseado = models.CharField(max_length=100, blank=True, null=True)
     num_familiares = models.PositiveIntegerField(blank=True, null=True)
+    
+    # Campos para check-in
+    fecha_checkin = models.DateTimeField(null=True, blank=True)
+    checkin_completado = models.BooleanField(default=False)
 
+    def tiene_habitacion_asignada(self):
+        """Verifica si la persona tiene una habitación asignada para esta escapada."""
+        return ReservaHabitacion.objects.filter(
+            persona=self.persona,
+            habitacion__escapada_alojamiento__escapada=self.escapada
+        ).exists()
+
+    def realizar_checkin(self):
+        """Realiza el check-in de la inscripción."""
+        if not self.tiene_habitacion_asignada():
+            raise ValidationError("No se puede realizar el check-in. La persona no tiene habitación asignada.")
+            
+        if not self.checkin_completado:
+            self.fecha_checkin = timezone.now()
+            self.checkin_completado = True
+            self.save()
+            
+    def cancelar_checkin(self):
+        """Cancela el check-in de la inscripción."""
+        if self.checkin_completado:
+            self.fecha_checkin = None
+            self.checkin_completado = False
+            self.save()
+   
+    def save(self, *args, **kwargs):
+        # Actualizar ha_pagado basado en la condición
+        self.ha_pagado = (self.a_pagar - self.pagado) <= 0
+        
+        # Llamar al método save() original
+        super().save(*args, **kwargs) 
+    
     def __str__(self):
         return f"{self.persona} - {self.escapada}"
 

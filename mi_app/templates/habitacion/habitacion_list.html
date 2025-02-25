@@ -797,70 +797,162 @@
   {% endif %}
   {% endif %}
   
-  <!-- Pagination Section -->
-  {% if habitaciones.has_other_pages %}
-  <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-    <div class="flex-1 flex justify-between sm:hidden">
+  <!-- Paginación Simplificada y Optimizada -->
+{% if habitaciones.has_other_pages %}
+<div class="bg-white px-4 py-4 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 rounded-b-lg">
+  <!-- Información de página actual (visible en todos los tamaños) -->
+  <div class="text-sm text-gray-700 mb-4 sm:mb-0">
+    Mostrando <span class="font-medium">{{ habitaciones.start_index }}</span> - 
+    <span class="font-medium">{{ habitaciones.end_index }}</span> de 
+    <span class="font-medium">{{ habitaciones.paginator.count }}</span> habitaciones
+  </div>
+  
+  <!-- Navegación de paginación -->
+  <div class="flex items-center">
+    <!-- Control para pantallas pequeñas -->
+    <div class="flex sm:hidden space-x-2">
       {% if habitaciones.has_previous %}
-      <a href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.escapada %}escapada={{ request.GET.escapada }}&{% endif %}{% if request.GET.alojamiento %}alojamiento={{ request.GET.alojamiento }}&{% endif %}{% if request.GET.estado %}estado={{ request.GET.estado }}&{% endif %}page={{ habitaciones.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-        Anterior
+      <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1" 
+         class="flex items-center justify-center h-8 w-8 rounded-md border border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+        </svg>
       </a>
+      <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ habitaciones.previous_page_number }}" 
+         class="flex items-center justify-center h-8 w-8 rounded-md border border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+      </a>
+      {% else %}
+      <span class="flex items-center justify-center h-8 w-8 rounded-md border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+        </svg>
+      </span>
+      <span class="flex items-center justify-center h-8 w-8 rounded-md border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+      </span>
       {% endif %}
+      
+      <span class="text-gray-700 font-medium px-2">{{ habitaciones.number }} / {{ habitaciones.paginator.num_pages }}</span>
+      
       {% if habitaciones.has_next %}
-      <a href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.escapada %}escapada={{ request.GET.escapada }}&{% endif %}{% if request.GET.alojamiento %}alojamiento={{ request.GET.alojamiento }}&{% endif %}{% if request.GET.estado %}estado={{ request.GET.estado }}&{% endif %}page={{ habitaciones.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-        Siguiente
+      <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ habitaciones.next_page_number }}" 
+         class="flex items-center justify-center h-8 w-8 rounded-md border border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
       </a>
+      <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ habitaciones.paginator.num_pages }}" 
+         class="flex items-center justify-center h-8 w-8 rounded-md border border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+        </svg>
+      </a>
+      {% else %}
+      <span class="flex items-center justify-center h-8 w-8 rounded-md border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+      </span>
+      <span class="flex items-center justify-center h-8 w-8 rounded-md border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+        </svg>
+      </span>
       {% endif %}
     </div>
-    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-      <div>
-        <p class="text-sm text-gray-700">
-          Mostrando
-          <span class="font-medium">{{ habitaciones.start_index }}</span>
-          a
-          <span class="font-medium">{{ habitaciones.end_index }}</span>
-          de
-          <span class="font-medium">{{ habitaciones.paginator.count }}</span>
-          resultados
-        </p>
-      </div>
-      <div>
-        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-          {% if habitaciones.has_previous %}
-          <a href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.escapada %}escapada={{ request.GET.escapada }}&{% endif %}{% if request.GET.alojamiento %}alojamiento={{ request.GET.alojamiento }}&{% endif %}{% if request.GET.estado %}estado={{ request.GET.estado }}&{% endif %}{% if request.GET.agrupacion %}agrupacion={{ request.GET.agrupacion }}&{% endif %}{% if request.GET.mostrarEstadisticas %}mostrarEstadisticas=on&{% endif %}page={{ habitaciones.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-            <span class="sr-only">Anterior</span>
-            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-            </svg>
-          </a>
-          {% endif %}
-          
-          {% for i in habitaciones.paginator.page_range %}
-            {% if habitaciones.number == i %}
-            <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-blue-50 text-sm font-medium text-blue-600">
+    
+    <!-- Control para pantallas medianas y grandes -->
+    <div class="hidden sm:flex space-x-1">
+      <!-- Primera página y anterior -->
+      {% if habitaciones.has_previous %}
+      <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1" 
+         title="Primera página"
+         class="flex items-center justify-center h-8 w-8 rounded-l-md border border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+        </svg>
+      </a>
+      <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ habitaciones.previous_page_number }}" 
+         title="Página anterior"
+         class="flex items-center justify-center h-8 w-8 border border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+      </a>
+      {% else %}
+      <span class="flex items-center justify-center h-8 w-8 rounded-l-md border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+        </svg>
+      </span>
+      <span class="flex items-center justify-center h-8 w-8 border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+      </span>
+      {% endif %}
+      
+      <!-- Números de página inteligentes -->
+      {% with current=habitaciones.number total=habitaciones.paginator.num_pages %}
+        {% for i in habitaciones.paginator.page_range %}
+          <!-- Mostrar siempre primera, última, actual y 1-2 páginas alrededor de la actual -->
+          {% if i == 1 or i == total or i == current or i == current|add:1 or i == current|add:-1 or i == current|add:2 or i == current|add:-2 %}
+            {% if i == current %}
+            <span class="flex items-center justify-center h-8 w-8 border border-blue-500 bg-blue-50 text-blue-600 font-medium">
               {{ i }}
             </span>
             {% else %}
-            <a href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.escapada %}escapada={{ request.GET.escapada }}&{% endif %}{% if request.GET.alojamiento %}alojamiento={{ request.GET.alojamiento }}&{% endif %}{% if request.GET.estado %}estado={{ request.GET.estado }}&{% endif %}{% if request.GET.agrupacion %}agrupacion={{ request.GET.agrupacion }}&{% endif %}{% if request.GET.mostrarEstadisticas %}mostrarEstadisticas=on&{% endif %}page={{ i }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+            <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ i }}" 
+              class="flex items-center justify-center h-8 w-8 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
               {{ i }}
             </a>
             {% endif %}
-          {% endfor %}
-
-          {% if habitaciones.has_next %}
-          <a href="?{% if request.GET.search %}search={{ request.GET.search }}&{% endif %}{% if request.GET.escapada %}escapada={{ request.GET.escapada }}&{% endif %}{% if request.GET.alojamiento %}alojamiento={{ request.GET.alojamiento }}&{% endif %}{% if request.GET.estado %}estado={{ request.GET.estado }}&{% endif %}{% if request.GET.agrupacion %}agrupacion={{ request.GET.agrupacion }}&{% endif %}{% if request.GET.mostrarEstadisticas %}mostrarEstadisticas=on&{% endif %}page={{ habitaciones.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-            <span class="sr-only">Siguiente</span>
-            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-            </svg>
-          </a>
+          {% elif i == 2 and current > 4 or i == total|add:-1 and current < total|add:-3 %}
+            <!-- Mostrar puntos suspensivos si hay saltos grandes -->
+            <span class="flex items-center justify-center h-8 w-8 border border-gray-200 bg-white text-gray-500">
+              ...
+            </span>
           {% endif %}
-        </nav>
-      </div>
+        {% endfor %}
+      {% endwith %}
+      
+      <!-- Siguiente y última página -->
+      {% if habitaciones.has_next %}
+      <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ habitaciones.next_page_number }}" 
+         title="Página siguiente"
+         class="flex items-center justify-center h-8 w-8 border border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+      </a>
+      <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ habitaciones.paginator.num_pages }}" 
+         title="Última página"
+         class="flex items-center justify-center h-8 w-8 rounded-r-md border border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+        </svg>
+      </a>
+      {% else %}
+      <span class="flex items-center justify-center h-8 w-8 border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+      </span>
+      <span class="flex items-center justify-center h-8 w-8 rounded-r-md border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed">
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+        </svg>
+      </span>
+      {% endif %}
     </div>
   </div>
-  {% endif %}
 </div>
+{% endif %}
 
 <!-- Delete Confirmation Modal -->
 <div id="deleteModal" class="hidden fixed z-10 inset-0 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -904,6 +996,16 @@
 
 <!-- CSS adicional para animaciones y efectos -->
 <style>
+  
+  /* Animaciones y transiciones suaves */
+  .flex.items-center.justify-center.h-8.w-8 {
+    transition: all 0.2s ease;
+  }
+  .flex.items-center.justify-center.h-8.w-8:hover:not(.cursor-not-allowed) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
   /* Animación para hover de filas */
   tr.hover\:bg-blue-50\/40:hover {
     box-shadow: 0 0 8px rgba(59, 130, 246, 0.1);

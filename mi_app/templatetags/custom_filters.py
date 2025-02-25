@@ -9,7 +9,6 @@ def join_escapada_ids(inscripciones):
     return ','.join(str(inscripcion.escapada_id) for inscripcion in inscripciones)
 
 
-
 @register.filter(name='add_class')
 def add_class(value, arg):
     """
@@ -79,3 +78,11 @@ def agrupar_por_tipo(habitaciones):
         grouped[tipo]['disponibles'] += habitacion.plazas_disponibles()
     # Retorna los items agrupados, por ejemplo, como una lista de tuplas
     return grouped.items()
+
+@register.filter(name='add_attr')
+def add_attr(field, arg):
+    attrs = {}
+    for pair in arg.split(','):
+        key, value = pair.split(':', 1)
+        attrs[key.strip()] = value.strip()
+    return field.as_widget(attrs=attrs)

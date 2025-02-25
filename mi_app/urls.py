@@ -15,9 +15,15 @@ urlpatterns = [
     path('escapadas/<int:pk>/eliminar/', views.EscapadaDeleteView.as_view(), name='escapada_delete'),
     # NUEVA URL: Seleccionar alojamientos para una escapada
     path('escapadas/<int:pk>/alojamientos/', views.EscapadaAlojamientoSelectView.as_view(), name='escapada_alojamiento_select'),
-    path('escapadas/<int:pk>/asociar-alojamientos/', views.EscapadaAlojamientoMultipleCreateView.as_view(), name='escapada_alojamiento_multiple_create'), ###
+    path('escapadas/<int:pk>/asociar-alojamientos/', views.EscapadaAlojamientoMultipleCreateView.as_view(), name='escapada_alojamiento_multiple_create'),
     path('escapadas/<int:pk>/inscripcion/', views.EscapadaInscripcionView.as_view(), name='escapada_inscripcion'),
 
+    path('escapadas/<int:escapada_id>/checkin/', views.CheckinListView.as_view(), name='checkin_list'),
+    path('inscripcion/<int:pk>/checkin/', views.realizar_checkin, name='realizar_checkin'),
+    path('inscripcion/<int:pk>/cancelar-checkin/', views.cancelar_checkin, name='cancelar_checkin'),
+    path('inscripcion/asignar-habitacion/', views.asignar_habitacion_checkin, name='asignar_habitacion_checkin'),
+
+        
     # URLs para Alojamiento
     path('alojamientos/', views.AlojamientoListView.as_view(), name='alojamiento_list'),
     path('alojamientos/nuevo/', views.AlojamientoCreateView.as_view(), name='alojamiento_create'),
@@ -34,11 +40,10 @@ urlpatterns = [
     path('habitaciones/nueva/<int:ea_id>/', views.HabitacionBulkCreateView.as_view(), name='habitacion_create_for_alojamiento'),
     path('habitacion/<int:habitacion_id>/remove-ocupante/<str:persona_id>/', views.remove_ocupante, name='remove_ocupante'),
     path('habitacion/<int:habitacion_id>/asignar-personas/', views.asignar_personas_habitacion, name='asignar_personas_habitacion'),
-
+    
     # API endpoints para JavaScript
     path('api/habitacion/<int:pk>/', views.habitacion_api_detail, name='habitacion_api_detail'),
     path('api/habitacion/<int:pk>/ocupantes/', views.habitacion_api_ocupantes, name='habitacion_api_ocupantes'),
-
 
     # URLs para Persona
     path('personas/', views.PersonaListView.as_view(), name='persona_list'),
@@ -46,10 +51,8 @@ urlpatterns = [
     path('personas/<str:pk>/', views.PersonaDetailView.as_view(), name='persona_detail'),
     path('personas/<str:pk>/editar/', views.PersonaUpdateView.as_view(), name='persona_update'),
     path('personas/<str:pk>/eliminar/', views.PersonaDeleteView.as_view(), name='persona_delete'),
-    path('personas/inscribir/', views.inscribir_personas, name='inscribir_personas'),
     path('importar-personas/', views.importar_personas, name='importar_personas'),
-    path('importar-personas/inspeccionar_csv/', views.inspeccionar_csv, name='inspeccionar_csv'),
-
+    path('personas/inscribir/', views.InscribirPersonasView.as_view(), name='inscribir_personas'),
 
     # Ruta para asociar una Escapada con un Alojamiento
     path('asociar/', views.EscapadaAlojamientoCreateView.as_view(), name='escapada_alojamiento_create'),
@@ -57,6 +60,10 @@ urlpatterns = [
     path('escapada-alojamiento/<int:pk>/', views.EscapadaAlojamientoDetailView.as_view(), name='escapada_alojamiento_detail'),
     path('escapada-alojamiento/<int:pk>/eliminar/', views.EscapadaAlojamientoDeleteView.as_view(), name='escapada_alojamiento_delete'),
     
+    path('importar-personas/inspeccionar_csv/', views.inspeccionar_csv, name='inspeccionar_csv'),
+    
+    path('ajax/reservar-habitacion/', views.reservar_habitacion_ajax, name='reservar_habitacion_ajax'),
+
 ]
 
 if settings.DEBUG:

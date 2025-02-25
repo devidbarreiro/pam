@@ -1,5 +1,5 @@
 from django import forms
-from .models import EscapadaAlojamiento, Alojamiento, Escapada, TIPO_HABITACION_CHOICES, Habitacion, ESTADO_HABITACION_CHOICES
+from .models import EscapadaAlojamiento, Alojamiento, Escapada, TIPO_HABITACION_CHOICES, Habitacion, ESTADO_HABITACION_CHOICES, Persona, Inscripcion
 
 class EscapadaAlojamientoForm(forms.ModelForm):
     class Meta:
@@ -57,7 +57,6 @@ class EscapadaForm(forms.ModelForm):
         self.fields['url_formulario_inscripcion'].required = False
         self.fields['descripcion'].required = False
         self.fields['imagen'].required = False
-
 
 class HabitacionForm(forms.ModelForm):
     class Meta:
@@ -167,5 +166,125 @@ class CSVImportForm(forms.Form):
             cleaned_data['escapada'] = None
         
         return cleaned_data
-    
-    
+ 
+class PersonaInscripcionForm(forms.ModelForm):
+    """
+    Formulario que combina los campos de Persona con algunos campos
+    importantes de Inscripcion, para que se puedan editar/crear juntos.
+    """
+    # Campo para elegir escapada. Si no se selecciona nada,
+    # NO se crea la inscripción.
+    escapada = forms.ModelChoiceField(
+        queryset=Escapada.objects.all(),
+        required=False,
+        label="Inscribir en Escapada"
+    )
+
+    # Campos de Inscripcion
+    ha_pagado = forms.BooleanField(required=False, label="¿Ha pagado?")
+    a_pagar = forms.DecimalField(
+        required=False,
+        label="Importe a Pagar",
+        min_value=0,
+        decimal_places=2,
+        max_digits=8,
+        initial=0
+    )
+    pagado = forms.DecimalField(
+        required=False,
+        label="Importe Pagado",
+        min_value=0,
+        decimal_places=2,
+        max_digits=8,
+        initial=0
+    )
+    pendiente = forms.DecimalField(
+        required=False,
+        label="Importe Pendiente",
+        min_value=0,
+        decimal_places=2,
+        max_digits=8,
+        initial=0
+    )
+    tipo_habitacion_preferida = forms.CharField(
+        required=False,
+        label="Tipo Habitación Preferida",
+        max_length=20
+    )
+    # Agrega más campos de Inscripcion si lo deseas
+
+    class Meta:
+        model = Persona
+        fields = [
+            'dni', 'nombre', 'apellidos', 'fecha_nacimiento',
+            'correo', 'telefono', 'sexo',
+            'es_pringado', 'anio_pringado',
+        ]
+        # Nota: No incluyo 'id' porque se genera automáticamente.
+
+    def save(self, commit=True):
+        """
+        1. Crea/Actualiza la Persona.
+        2. Si se seleccionó una Escapada, crea/actualiza la Inscripcion
+           con los campos que se hayan rellenado.
+        """
+        persona = super().save(commit=commit)
+
+        escapada = self.cleaned_data.get('escapada')
+        if escapada:
+            # Preparar datos para Inscripcion
+            ins_data = {
+                'ha_pagado': self.cleaned_data.get('ha_pagado') or False,
+                'a_pagar': self.cleaned_data.get('a_pagar') or 0,
+                'pagado': self.cleaned_data.get('pagado') or 0,
+                'pendiente': self.cleaned_data.get('pendiente') or 0,
+                'tipo_habitacion_preferida': self.cleaned_data.get('tipo_habitacion_preferida') or None
+            }
+
+            # Crear/Actualizar la inscripcion:
+            Inscripcion.objects.update_or_create(
+                persona=persona,
+                escapada=escapada,
+                defaults=ins_data
+            )
+
+        return persona
+
+class PersonaForm(forms.ModelForm):
+    # Campo adicional para seleccionar la escapada
+    escapada = forms.ModelChoiceField(
+        queryset=Escapada.objects.all(),
+        required=False,               # Puede ser opcional
+        label="Inscribir en Escapada"
+    )
+
+    class Meta:
+        model = Persona
+        fields = ['dni', 'nombre', 'apellidos', 'fecha_nacimiento', 
+                  'correo', 'sexo', 'prefijo', 'telefono', 
+                  'es_pringado', 'anio_pringado']
+
+    def save(self, commit=True):
+        # Sobrescribimos el save para crear la inscripcion si escapada != None
+        persona = super().save(commit=commit)
+
+        # Tomar la escapada del cleaned_data
+        escapada = self.cleaned_data.get('escapada')
+
+        if escapada:
+            # Verificar si ya existe una inscripcion para esa Persona y Escapada
+            inscripcion, created = Inscripcion.objects.get_or_create(
+                persona=persona,
+                escapada=escapada,
+                defaults={
+                    "ha_pagado": False,  # o lo que proceda
+                    "a_pagar": 0,
+                    "pagado": 0,
+                    "pendiente": 0,
+                }
+            )
+            # Si 'created' es True, hemos creado la inscripcion
+            # Si 'created' es False, la inscripcion ya existía
+
+        return persona
+

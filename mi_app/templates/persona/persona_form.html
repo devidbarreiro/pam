@@ -1,102 +1,185 @@
 {% extends 'base.html' %}
-{% load custom_filters %} 
+{% load custom_filters %}
 
-{% block title %}{% if object %}Editar Persona{% else %}Crear Persona{% endif %} - Gestión de Escapadas{% endblock %}
+{% block title %}
+  {% if object %}Editar Persona{% else %}Crear Nueva Persona{% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto bg-gray-50 p-4">
   <div class="bg-white shadow-md rounded-lg p-8">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-3xl font-bold text-gray-800">
-        {% if object %}Editar Persona{% else %}Crear Nueva Persona{% endif %}
-      </h2>
-      {% if object %}
-        <div class="text-sm text-gray-500">
-          Última actualización: {{ object.updated_at|default:'' }}
-        </div>
-      {% endif %}
-    </div>
+    <h2 class="text-3xl font-bold text-gray-800 mb-6">
+      {% if object %}Editar Persona{% else %}Crear Nueva Persona{% endif %}
+    </h2>
 
-    <form method="post" class="space-y-6">
+    <form method="POST" class="space-y-6">
       {% csrf_token %}
-      
+
+      <!-- Campos de Persona -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="space-y-4">
-          <div>
-            <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-              Nombre Completo
-            </label>
-            {{ form.nombre|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
-            {% if form.nombre.errors %}
-              <p class="text-red-500 text-xs mt-1">{{ form.nombre.errors.0 }}</p>
-            {% endif %}
-          </div>
-
-          <div>
-            <label for="{{ form.dni.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-              DNI/NIE
-            </label>
-            {{ form.dni|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
-            {% if form.dni.errors %}
-              <p class="text-red-500 text-xs mt-1">{{ form.dni.errors.0 }}</p>
-            {% endif %}
-          </div>
+        <!-- DNI -->
+        <div>
+          <label for="{{ form.dni.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            DNI
+          </label>
+          {{ form.dni|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" }}
+          {% if form.dni.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.dni.errors.0 }}</p>
+          {% endif %}
         </div>
-
-        <div class="space-y-4">
-          <div>
-            <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-              Correo Electrónico
-            </label>
-            {{ form.email|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
-            {% if form.email.errors %}
-              <p class="text-red-500 text-xs mt-1">{{ form.email.errors.0 }}</p>
-            {% endif %}
-          </div>
-
-          <div>
-            <label for="{{ form.telefono.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-              Teléfono
-            </label>
-            {{ form.telefono|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
-            {% if form.telefono.errors %}
-              <p class="text-red-500 text-xs mt-1">{{ form.telefono.errors.0 }}</p>
-            {% endif %}
-          </div>
+        <!-- Nombre -->
+        <div>
+          <label for="{{ form.nombre.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Nombre
+          </label>
+          {{ form.nombre|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+          {% if form.nombre.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.nombre.errors.0 }}</p>
+          {% endif %}
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Apellidos -->
         <div>
-          <label for="{{ form.alojamiento.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-            Alojamiento
+          <label for="{{ form.apellidos.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Apellidos
           </label>
-          {{ form.alojamiento|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+          {{ form.apellidos|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+          {% if form.apellidos.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.apellidos.errors.0 }}</p>
+          {% endif %}
         </div>
-
+        <!-- Fecha de Nacimiento -->
         <div>
-          <label for="{{ form.habitacion.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
-            Habitación
+          <label for="{{ form.fecha_nacimiento.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Fecha de Nacimiento
           </label>
-          {{ form.habitacion|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
-        </div>
-
-        <div class="flex items-end">
-          <div class="flex items-center">
-            {{ form.es_anfitrion }}
-            <label for="{{ form.es_anfitrion.id_for_label }}" class="ml-2 block text-sm text-gray-900">
-              Es Anfitrión
-            </label>
-          </div>
+          {# Se añade type="date" para mostrar calendario #}
+          {{ form.fecha_nacimiento|add_attr:"type:date"|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+          {% if form.fecha_nacimiento.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.fecha_nacimiento.errors.0 }}</p>
+          {% endif %}
         </div>
       </div>
 
-      <div class="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
-        <a href="{% url 'persona_list' %}" 
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Correo -->
+        <div>
+          <label for="{{ form.correo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Correo Electrónico
+          </label>
+          {{ form.correo|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+          {% if form.correo.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.correo.errors.0 }}</p>
+          {% endif %}
+        </div>
+        <!-- Teléfono -->
+        <div>
+          <label for="{{ form.telefono.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Teléfono
+          </label>
+          {{ form.telefono|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+          {% if form.telefono.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.telefono.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Sexo (desplegable) -->
+        <div>
+          <label for="{{ form.sexo.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Sexo
+          </label>
+          {# Se espera que en el form el widget de sexo sea Select con opciones Masculino/Femenino #}
+          {{ form.sexo|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+          {% if form.sexo.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.sexo.errors.0 }}</p>
+          {% endif %}
+        </div>
+        <!-- Estado (desplegable) -->
+        <div>
+          <label for="{{ form.estado.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Estado
+          </label>
+          {# Se espera que en el form se defina el widget como Select con las opciones: Confirma, Cancela, Bloqueo económico, Duplicado #}
+          {{ form.estado|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+          {% if form.estado.errors %}
+            <p class="text-red-500 text-xs mt-1">{{ form.estado.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+        <!-- Es Pringado (checkbox) -->
+        <div class="space-y-2">
+          <label for="{{ form.es_pringado.id_for_label }}" class="block text-sm font-medium text-gray-700">
+            Es Pringado
+          </label>
+          <div class="flex items-center gap-2">
+            {{ form.es_pringado }}
+            <span class="text-gray-600 text-sm">Sí/No</span>
+          </div>
+        </div>
+        <!-- Año Pringado (solo se muestra si Es Pringado está marcado) -->
+        <div id="anio-pringado-container">
+          <label for="{{ form.anio_pringado.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Año Pringado
+          </label>
+          {{ form.anio_pringado|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+        </div>
+      </div>
+
+      <!-- Campo para seleccionar la Escapada -->
+      <div>
+        <label for="{{ form.escapada.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+          Inscribir en Escapada
+        </label>
+        {{ form.escapada|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" }}
+      </div>
+
+      <!-- Campos de Inscripción: se mostrarán solo si se selecciona una Escapada -->
+      <div id="inscripcion-fields" class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 border rounded" style="display: none;">
+        <div>
+          <label for="{{ form.ha_pagado.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            ¿Ha pagado?
+          </label>
+          {{ form.ha_pagado }}
+        </div>
+        <div>
+          <label for="{{ form.a_pagar.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Importe a Pagar
+          </label>
+          {{ form.a_pagar|add_attr:"oninput:calcularPendiente()"|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg" }}
+        </div>
+        <div>
+          <label for="{{ form.pagado.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Importe Pagado
+          </label>
+          {{ form.pagado|add_attr:"oninput:calcularPendiente()"|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg" }}
+        </div>
+        <div>
+          <label for="{{ form.pendiente.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Importe Pendiente
+          </label>
+          {# Se calcula automáticamente y es de solo lectura #}
+          {{ form.pendiente|add_attr:"readonly:true"|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100" }}
+        </div>
+        <div>
+          <label for="{{ form.tipo_habitacion_preferida.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+            Tipo Habitación Preferida
+          </label>
+          {{ form.tipo_habitacion_preferida|add_class:"w-full px-3 py-2 border border-gray-300 rounded-lg" }}
+        </div>
+      </div>
+
+      <div class="flex justify-end space-x-4 mt-8 pt-4 border-t border-gray-200">
+        <a href="{% url 'persona_list' %}"
            class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition">
           Cancelar
         </a>
-        <button type="submit" 
+        <button type="submit"
                 class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
           {% if object %}Actualizar{% else %}Crear{% endif %} Persona
         </button>
@@ -109,19 +192,39 @@
 {% block extra_js %}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // Validación de DNI en tiempo real
-    const dniInput = document.querySelector('input[name="dni"]');
-    
-    dniInput.addEventListener('input', function() {
-      const dniValue = this.value.toUpperCase();
-      const dniRegex = /^[0-9]{8}[A-Z]$/;
-      
-      if (dniValue && !dniRegex.test(dniValue)) {
-        this.classList.add('border-red-500');
-      } else {
-        this.classList.remove('border-red-500');
-      }
-    });
+    // Mostrar/ocultar campos de inscripción según la Escapada seleccionada
+    const escapadaSelect = document.getElementById("id_escapada");
+    const inscripcionFields = document.getElementById("inscripcion-fields");
+
+    function toggleInscripcionFields() {
+      inscripcionFields.style.display = escapadaSelect.value ? "block" : "none";
+    }
+    escapadaSelect.addEventListener("change", toggleInscripcionFields);
+    toggleInscripcionFields();
+
+    // Mostrar/ocultar campo Año Pringado según Es Pringado
+    const esPringadoCheckbox = document.getElementById("id_es_pringado");
+    const anioPringadoContainer = document.getElementById("anio-pringado-container");
+
+    function toggleAnioPringado() {
+      anioPringadoContainer.style.display = esPringadoCheckbox.checked ? "block" : "none";
+    }
+    esPringadoCheckbox.addEventListener("change", toggleAnioPringado);
+    toggleAnioPringado();
+
+    // Calcular el Importe Pendiente: pendiente = a_pagar - pagado
+    const aPagarInput = document.getElementById("id_a_pagar");
+    const pagadoInput = document.getElementById("id_pagado");
+    const pendienteInput = document.getElementById("id_pendiente");
+
+    window.calcularPendiente = function() {
+      const aPagar = parseFloat(aPagarInput.value) || 0;
+      const pagado = parseFloat(pagadoInput.value) || 0;
+      pendienteInput.value = (aPagar - pagado).toFixed(2);
+    };
+
+    // Ejecutar el cálculo inicial si ya hay valores
+    calcularPendiente();
   });
 </script>
 {% endblock %}
