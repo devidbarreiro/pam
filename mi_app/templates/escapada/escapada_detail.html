@@ -202,15 +202,6 @@
   <section class="bg-white p-6 rounded-lg shadow border">
     <div class="flex justify-between items-center border-b pb-2 mb-4">
       <h2 class="text-2xl font-bold text-gray-800">Habitaciones por Alojamientos y Tipo</h2>
-      {% if escapada.escapadas_alojamiento.exists %}
-        <a href="{% url 'habitacion_create' %}?escapada={{ escapada.pk }}" 
-          class="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition">
-          <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Nueva Habitación
-        </a>
-      {% endif %}
     </div>
     
     {% if grouped_rooms %}

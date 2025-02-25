@@ -1920,7 +1920,7 @@ class EscapadaInscripcionView(View):
                 # Si ya estamos en el paso de elegir habitación, actualizamos el step
                 request.session['inscripcion_step'] = 'elegir_habitacion'
             except ValueError:
-                pass  # O manejar el error si el valor no es un entero válido
+                pass
 
         # Resto de la lógica: si hay token de sesión, mostrar el paso correspondiente
         session_token = request.session.get('inscripcion_token')
@@ -1949,7 +1949,7 @@ class EscapadaInscripcionView(View):
 
         # Vista inicial: formulario de DNI
         return render(request, self.template_name, {'escapada': escapada})
-
+    
     def _procesar_cancelacion_reserva(self, request, escapada):
         dni = request.session.get('persona_dni', request.POST.get('dni'))
         habitacion_id = request.POST.get('habitacion_id')
@@ -1991,7 +1991,6 @@ class EscapadaInscripcionView(View):
         """Procesa los diferentes formularios según el paso"""
         escapada = get_object_or_404(Escapada, pk=pk)
         
-        # Verificar qué acción se está realizando
         if 'verificar_dni' in request.POST:
             return self._procesar_verificacion_dni(request, escapada)
         elif 'seleccionar_capacidad' in request.POST:
@@ -2015,23 +2014,19 @@ class EscapadaInscripcionView(View):
         try:
             persona = Persona.objects.get(dni=dni)
             
-            # NUEVO: Verificar primero si la persona ya tiene una habitación asignada
+            # Verificar si la persona ya tiene una habitación asignada
             reserva_habitacion = ReservaHabitacion.objects.filter(
                 persona=persona,
                 habitacion__escapada_alojamiento__escapada_id=escapada.pk
             ).first()
             
             if reserva_habitacion:
-                # La persona ya tiene una habitación asignada permanentemente
                 habitacion = reserva_habitacion.habitacion
                 companeros = ReservaHabitacion.objects.filter(
                     habitacion=habitacion
                 ).exclude(persona=persona).select_related('persona')
-                
-                # Calcular plazas disponibles
                 plazas_ocupadas = habitacion.ocupacion_actual()
                 plazas_disponibles = habitacion.capacidad - plazas_ocupadas
-                
                 return render(request, self.template_name, {
                     'escapada': escapada,
                     'persona': persona,
@@ -2039,10 +2034,10 @@ class EscapadaInscripcionView(View):
                     'reserva': reserva_habitacion,
                     'companeros': companeros,
                     'plazas_disponibles': plazas_disponibles,
-                    'mostrar_reserva_actual': True  # Esta es la clave para mostrar la vista de reserva
+                    'mostrar_reserva_actual': True
                 })
             
-            # NUEVO: Verificar si tiene una reserva temporal activa
+            # Verificar si tiene una reserva temporal activa
             habitacion_reservada = Habitacion.objects.filter(
                 reservado_por=persona,
                 escapada_alojamiento__escapada_id=escapada.pk,
@@ -2051,10 +2046,8 @@ class EscapadaInscripcionView(View):
             ).first()
             
             if habitacion_reservada:
-                # Calcular ocupación actual y plazas disponibles
                 ocupantes = habitacion_reservada.ocupantes
                 plazas_disponibles = habitacion_reservada.capacidad - len(ocupantes)
-                
                 return render(request, self.template_name, {
                     'escapada': escapada,
                     'persona': persona,
@@ -2062,15 +2055,32 @@ class EscapadaInscripcionView(View):
                     'ocupantes_actuales': ocupantes,
                     'plazas_disponibles': plazas_disponibles,
                     'expiracion_reserva': habitacion_reservada.reservado_hasta,
-                    'mostrar_form_companeros': True,  # Mostrar formulario de compañeros
-                    'puede_reservar': False  # Ya está reservada
+                    'mostrar_form_companeros': True,
+                    'puede_reservar': False
                 })
             
-            # Continuar con la lógica normal si no tiene habitación
+            # Procesar inscripción normal
             try:
                 inscripcion = Inscripcion.objects.get(persona=persona, escapada=escapada)
                 
-                # Verificar pago pendiente
+                # AÑADIDO: Comprobar el campo tipo_alojamiento_deseado
+                if inscripcion.tipo_alojamiento_deseado:
+                    tipo = inscripcion.tipo_alojamiento_deseado.lower()
+                    if "sin alojamiento" in tipo:
+                        messages.info(request, "Sin alojamiento: No es necesario seleccionar habitación.")
+                        return render(request, self.template_name, {
+                            'escapada': escapada,
+                            'persona': persona,
+                            'sin_alojamiento': True
+                        })
+                    elif "familia" in tipo:
+                        messages.info(request, "No te preocupes familia, nosotros nos ocupamos de reservarte la mejor habitación 😉")
+                        return render(request, self.template_name, {
+                            'escapada': escapada,
+                            'persona': persona,
+                            'familia': True
+                        })
+                
                 if inscripcion.pendiente > 0:
                     return render(request, self.template_name, {
                         'escapada': escapada,
@@ -2079,41 +2089,6 @@ class EscapadaInscripcionView(View):
                         'pendiente_pago': True
                     })
                 
-                # Continuar con flujo normal (selección de capacidad)
-                request.session['inscripcion_token'] = f"{persona.pk}_{escapada.pk}_{timezone.now().timestamp()}"
-                request.session['persona_dni'] = persona.dni
-                request.session['inscripcion_step'] = 'elegir_capacidad'
-                
-                return self._show_capacidad_selection(request, escapada, persona)
-                
-            except Inscripcion.DoesNotExist:
-                return render(request, self.template_name, {
-                    'escapada': escapada,
-                    'persona': persona,
-                    'no_inscrito': True
-                })
-                
-        except Persona.DoesNotExist:
-            messages.error(request, "No encontramos ninguna persona registrada con ese DNI.")
-            return redirect('escapada_inscripcion', pk=escapada.pk)
-        
-        try:
-            persona = Persona.objects.get(dni=dni)
-            
-            # Verificar si la persona está inscrita en esta escapada
-            try:
-                inscripcion = Inscripcion.objects.get(persona=persona, escapada=escapada)
-                
-                # Si el importe pendiente es mayor que 0, se muestra el mensaje de pago pendiente.
-                if inscripcion.pendiente > 0:
-                    return render(request, self.template_name, {
-                        'escapada': escapada,
-                        'persona': persona,
-                        'inscripcion': inscripcion,
-                        'pendiente_pago': True  # Variable para usar en la plantilla
-                    })
-                
-                # Si pendiente <= 0, se permite continuar con la inscripción.
                 request.session['inscripcion_token'] = f"{persona.pk}_{escapada.pk}_{timezone.now().timestamp()}"
                 request.session['persona_dni'] = persona.dni
                 request.session['inscripcion_step'] = 'elegir_capacidad'
